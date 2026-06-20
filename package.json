@@ -1,0 +1,28 @@
+{
+  "name": "kirby-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The Kirby cluster demo UI: a Nostr client. Subscribes to the cluster's signed Nostr events off a relay and renders them. No backend - the relay is the API.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p mock/tsconfig.json",
+    "mock": "bun mock/generate.ts",
+    "relay": "echo 'Run a local relay from the kirby-node flake: (cd ../kirby-node && nix run .#relay) - default ws://127.0.0.1:7777'"
+  },
+  "dependencies": {
+    "nostr-tools": "^2.10.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.3"
+  }
+}

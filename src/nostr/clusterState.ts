@@ -1,0 +1,253 @@
+// The in-memory model the UI renders, plus the pure reducer that folds verified
+// Kirby events into it. Kept framework-free and pure so it is trivially testable
+// and so high-frequency meter ticks do not entangle with React internals.
+//
+// Liveness (node stale/dead, meter idle) is NOT stored here - it is a function of
+// `now` computed at render time from the stored `lastSeen`/`at` timestamps, so a
+// node "dies" on the clock without needing a state mutation on a timer.
+
+import {
+  KIND,
+  type AgentStateContent,
+  type Backend,
+  type Fidelity,
+  type KirbyEvent,
+  type Lifecycle,
+} from "./kinds";
+
+/** A node as seen via its 10100 presence beacon (latest-wins per pubkey). */
+export interface NodeView {
+  pubkey: string;
+  npub: string;
+  node_id: string | null;
+  status: string;
+  /** created_at of the latest beacon = last-seen unix secs. */
+  lastSeen: number;
+  startedAt?: number;
+  version?: string;
+  endpoint?: string;
+}
+
+/** A per-agent view: the 31000 state (if seen) + lifecycle hint from 9100. */
+export interface AgentView {
+  agent_id: string;
+  /** The latest 31000 content, or null until one is published ("pending"). */
+  state: AgentStateContent | null;
+  /** created_at of the stored 31000 state. 31000 is addressable per (pubkey,d),
+   *  so across failover two NODE keys may both publish for one agent_id; we keep
+   *  the freshest created_at across pubkeys. Distinct from `lastUpdate` (which any
+   *  agent-scoped event bumps) so a later meter tick can't drop a newer 31000. */
+  stateAt: number;
+  /** Lifecycle hint from the most recent 9100 (used when no 31000 yet). */
+  lastLifecycleEvent: "born" | "died" | null;
+  /** node_id this agent was last associated with (best-effort; prefer the lease
+   *  holder from 31000 via `leaseHolder()`). The agent_id is failover-stable; the
+   *  publishing node changes on failover, so never key an agent by pubkey. */
+  node_id: string | null;
+  firstSeen: number;
+  lastUpdate: number;
+}
+
+/** The latest 21000 meter tick for an agent (ephemeral; live-only). */
+export interface MeterView {
+  agent_id: string;
+  cpu_pct: number;
+  mem_mib: number;
+  egress_bps: number;
+  fidelity: Fidelity;
+  /** created_at of the tick. */
+  at: number;
+}
+
+/** The cluster model. Maps keyed for latest-wins upserts; feed is newest-first. */
+export interface ClusterState {
+  nodes: Record<string, NodeView>; // key: pubkey
+  agents: Record<string, AgentView>; // key: agent_id
+  meters: Record<string, MeterView>; // key: agent_id
+  feed: KirbyEvent[]; // 9100-9103, newest first, capped
+  /** Total verified Kirby events folded in (a liveness counter for the stream). */
+  ingested: number;
+  /** Events whose signature FAILED verification (proof the UI rejects fakes). */
+  rejected: number;
+  /** Verified events that did not decode to a known Kirby payload. */
+  malformed: number;
+}
+
+export const emptyCluster: ClusterState = {
+  nodes: {},
+  agents: {},
+  meters: {},
+  feed: [],
+  ingested: 0,
+  rejected: 0,
+  malformed: 0,
+};
+
+/** Cap on the rendered feed length (newest kept). */
+const FEED_CAP = 300;
+
+export type ClusterAction =
+  | { type: "event"; ev: KirbyEvent }
+  | { type: "rejected" }
+  | { type: "malformed" }
+  | { type: "reset" };
+
+/** Ensure an agent entry exists, returning the (possibly new) map. */
+function touchAgent(
+  agents: Record<string, AgentView>,
+  agent_id: string,
+  now: number,
+  node_id: string | null,
+): Record<string, AgentView> {
+  const existing = agents[agent_id];
+  if (existing) {
+    if (node_id && existing.node_id !== node_id) {
+      return { ...agents, [agent_id]: { ...existing, node_id, lastUpdate: now } };
+    }
+    return agents;
+  }
+  return {
+    ...agents,
+    [agent_id]: {
+      agent_id,
+      state: null,
+      stateAt: 0,
+      lastLifecycleEvent: null,
+      node_id,
+      firstSeen: now,
+      lastUpdate: now,
+    },
+  };
+}
+
+/** The pure reducer: fold one verified+decoded Kirby event into the cluster. */
+export function clusterReducer(state: ClusterState, action: ClusterAction): ClusterState {
+  switch (action.type) {
+    case "reset":
+      return emptyCluster;
+    case "rejected":
+      return { ...state, rejected: state.rejected + 1 };
+    case "malformed":
+      return { ...state, malformed: state.malformed + 1 };
+    case "event":
+      return { ...foldEvent(state, action.ev), ingested: state.ingested + 1 };
+    default:
+      return state;
+  }
+}
+
+function foldEvent(state: ClusterState, ev: KirbyEvent): ClusterState {
+  switch (ev.kind) {
+    case KIND.PRESENCE: {
+      const prev = state.nodes[ev.pubkey];
+      // latest-wins: ignore an older or equal beacon (replaceable re-delivery).
+      if (prev && prev.lastSeen >= ev.created_at) return state;
+      const node: NodeView = {
+        pubkey: ev.pubkey,
+        npub: ev.npub,
+        node_id: ev.content.node_id ?? ev.node_id,
+        status: ev.content.status,
+        lastSeen: ev.created_at,
+        startedAt: ev.content.started_at,
+        version: ev.content.version,
+        endpoint: ev.content.endpoint,
+      };
+      return { ...state, nodes: { ...state.nodes, [ev.pubkey]: node } };
+    }
+
+    case KIND.AGENT_STATE: {
+      const id = ev.content.agent_id;
+      const agents = touchAgent(state.agents, id, ev.created_at, ev.content.lease_holder_node ?? ev.node_id);
+      const prev = agents[id];
+      // 31000 is addressable per (pubkey, d=agent_id); across failover two NODE
+      // keys may both publish for one agent_id. Keep the freshest created_at
+      // across pubkeys (gate on stateAt, NOT lastUpdate which ticks also bump),
+      // and trust the event's lease_holder_node for the current holder.
+      if (prev.stateAt >= ev.created_at) return { ...state, agents };
+      const updated: AgentView = {
+        ...prev,
+        state: ev.content,
+        stateAt: ev.created_at,
+        node_id: ev.content.lease_holder_node ?? prev.node_id,
+        lastUpdate: Math.max(prev.lastUpdate, ev.created_at),
+      };
+      return { ...state, agents: { ...agents, [id]: updated } };
+    }
+
+    case KIND.METER_TICK: {
+      const id = ev.content.agent_id;
+      const agents = touchAgent(state.agents, id, ev.created_at, ev.node_id);
+      const prevMeter = state.meters[id];
+      if (prevMeter && prevMeter.at > ev.created_at) return { ...state, agents };
+      const meter: MeterView = {
+        agent_id: id,
+        cpu_pct: ev.content.cpu_pct,
+        mem_mib: ev.content.mem_mib,
+        egress_bps: ev.content.egress_bps,
+        fidelity: ev.content.fidelity,
+        at: ev.created_at,
+      };
+      return { ...state, agents, meters: { ...state.meters, [id]: meter } };
+    }
+
+    // The stored, append-only event-log kinds -> the signed feed.
+    case KIND.LIFECYCLE:
+    case KIND.LEDGER:
+    case KIND.FAILOVER:
+    case KIND.CUSTODY: {
+      // dedupe by event id (stored kinds are re-delivered on resubscribe).
+      if (state.feed.some((e) => e.id === ev.id)) return state;
+      const agentId =
+        "agent_id" in ev.content ? (ev.content.agent_id as string) : undefined;
+      let agents = state.agents;
+      if (agentId) {
+        agents = touchAgent(agents, agentId, ev.created_at, ev.node_id);
+        if (ev.kind === KIND.LIFECYCLE) {
+          const prev = agents[agentId];
+          agents = {
+            ...agents,
+            [agentId]: { ...prev, lastLifecycleEvent: ev.content.event, lastUpdate: ev.created_at },
+          };
+        }
+      }
+      const feed = [ev, ...state.feed].slice(0, FEED_CAP);
+      return { ...state, agents, feed };
+    }
+
+    default:
+      return state;
+  }
+}
+
+// --- render-time selectors (liveness as a function of `now`) ----------------
+
+export type Liveness = "alive" | "stale";
+
+/** A node is alive if its last beacon is within the stale window, else stale (=dead). */
+export function nodeLiveness(node: NodeView, now: number, staleWindowSecs: number): Liveness {
+  return now - node.lastSeen <= staleWindowSecs ? "alive" : "stale";
+}
+
+/** A meter is "live" if a tick arrived within the idle window, else no-signal. */
+export function meterIsLive(meter: MeterView, now: number, idleWindowSecs: number): boolean {
+  return now - meter.at <= idleWindowSecs;
+}
+
+/** The lifecycle to display for an agent: 31000 if present, else 9100 hint. */
+export function displayLifecycle(agent: AgentView): Lifecycle | "unknown" {
+  if (agent.state) return agent.state.lifecycle;
+  if (agent.lastLifecycleEvent === "died") return "dead";
+  if (agent.lastLifecycleEvent === "born") return "born";
+  return "unknown";
+}
+
+/** The agent's backend, or null if not yet known (pending 31000). */
+export function agentBackend(agent: AgentView): Backend | null {
+  return agent.state?.backend ?? null;
+}
+
+/** The node currently holding this agent's lease (authoritative from 31000,
+ *  else the best-effort node_id seen on agent-scoped events). */
+export function leaseHolder(agent: AgentView): string | null {
+  return agent.state?.lease_holder_node ?? agent.node_id;
+}

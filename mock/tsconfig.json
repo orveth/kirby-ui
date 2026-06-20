@@ -1,0 +1,10 @@
+{
+  // The mock generator is a Node/bun script (not part of the browser app), so it
+  // typechecks with Node globals + types and is excluded from the app tsconfig.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["."]
+}
