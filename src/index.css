@@ -1655,3 +1655,109 @@
     width: 100%;
   }
 }
+
+/* ---- sound toggle: floating bottom-right pill ----------------------------- */
+/* ADDITIVE: matches the Dream-Land theme (hot-pink, rounded, soft glow). The
+   only audio affordance — muted by default, unmute is opt-in. */
+@layer components {
+  .sound-toggle {
+    position: fixed;
+    right: clamp(14px, 2.4vw, 26px);
+    bottom: clamp(14px, 2.4vw, 26px);
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 14px 7px 9px;
+    background: linear-gradient(180deg, var(--surf-1), var(--surf-0));
+    border: 1px solid var(--line);
+    border-radius: 99px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 10px 28px -16px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+    transition: border-color 0.25s, box-shadow 0.25s;
+  }
+  /* light up like the live node cells when sound is on */
+  .sound-toggle--on {
+    border-color: rgba(255, 111, 165, 0.45);
+    box-shadow: var(--glow-pink), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  }
+
+  .sound-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 8px;
+    border-radius: 99px;
+    color: var(--ink-2);
+    transition: color 0.2s, transform 0.1s;
+  }
+  .sound-btn:hover {
+    color: var(--ink-0);
+  }
+  .sound-btn:active {
+    transform: scale(0.96);
+  }
+  .sound-toggle--on .sound-btn {
+    color: var(--kirby-hot);
+  }
+  .sound-icon {
+    flex: none;
+    filter: drop-shadow(0 0 6px rgba(255, 111, 165, 0.35));
+  }
+  .sound-btn-label {
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: lowercase;
+    white-space: nowrap;
+  }
+
+  /* the volume slider — a slim pink track + a soft round thumb (Kirby-puff) */
+  .sound-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 84px;
+    height: 6px;
+    border-radius: 99px;
+    background: rgba(20, 6, 34, 0.7);
+    border: 1px solid var(--line);
+    outline: none;
+    cursor: pointer;
+    transition: opacity 0.25s, filter 0.25s;
+  }
+  .sound-slider:disabled {
+    opacity: 0.4;
+    filter: grayscale(0.6);
+    cursor: default;
+  }
+  .sound-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 32%, #ffd9e4, var(--kirby) 55%, var(--kirby-hot));
+    border: 1.5px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 0 10px -2px var(--kirby-hot);
+  }
+  .sound-slider::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 32%, #ffd9e4, var(--kirby) 55%, var(--kirby-hot));
+    border: 1.5px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 0 10px -2px var(--kirby-hot);
+  }
+  .sound-slider:focus-visible {
+    border-color: var(--kirby-hot);
+    box-shadow: var(--glow-pink);
+  }
+}
+
+@media (max-width: 460px) {
+  /* shrink to just the speaker button on very narrow screens */
+  .sound-slider {
+    display: none;
+  }
+}

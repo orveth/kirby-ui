@@ -10,9 +10,15 @@ import { AgentDashboard } from "./components/AgentDashboard";
 import { Meters } from "./components/Meters";
 import { Feed } from "./components/Feed";
 import { DemoControls } from "./components/DemoControls";
+import { SoundToggle } from "./components/SoundToggle";
+import { useClusterSound } from "./audio/useClusterSound";
 
 export default function App() {
   const { state, now, relayStatus, relayUrl, setRelayUrl, injectForged } = useCluster();
+
+  // Watch the signed cluster state and fire SFX on real transitions (muted by
+  // default; the SoundToggle is the opt-in). Skips the relay's back-fill backlog.
+  useClusterSound(state);
 
   return (
     <div className="app">
@@ -38,6 +44,9 @@ export default function App() {
       </main>
 
       <DemoControls injectForged={injectForged} />
+
+      {/* floating sound control (muted by default; opt-in unmute) */}
+      <SoundToggle />
     </div>
   );
 }
