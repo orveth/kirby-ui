@@ -61,10 +61,10 @@ export function Header({ relayStatus, relayUrl, setRelayUrl, ingested, rejected,
         </div>
         <div className="brand-text">
           <h1 className="brand-title">
-            KIRBY<span className="brand-caret">_</span>
+            KIRBY<span className="brand-star" aria-hidden="true">★</span>
           </h1>
           <p className="brand-tag">
-            try to kill it · try to rug it · <em>you can&apos;t — and it earns</em>
+            try to kill it · try to rug it · <em>you can&apos;t — and it eats sats</em>
           </p>
         </div>
       </div>

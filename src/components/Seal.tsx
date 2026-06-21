@@ -1,16 +1,28 @@
-// The cryptographic-attestation motif: a hexagonal "signed" seal. Every datum the
-// UI shows cleared a Schnorr signature check (see src/nostr/verify.ts), so we mark
-// verified things with this seal. It is the visual claim "this is real, not faked".
+// The cryptographic-attestation motif: a STAR "signed" seal — on-theme for Dream
+// Land while keeping its job. Every datum the UI shows cleared a Schnorr signature
+// check (see src/nostr/verify.ts), so we mark verified things with this star seal.
+// It is the visual claim "this is real, not faked" — a Warp Star of authenticity.
 
 interface SealProps {
   /** px size of the square viewport. */
   size?: number;
-  /** Add a slow shimmer sweep across the seal (used on the header crest). */
+  /** Add a slow twinkle/shimmer (used on the header crest). */
   animated?: boolean;
   title?: string;
 }
 
-/** Inline-SVG hex seal + check. Pure presentation, no deps. */
+/** A 5-point star path string centered in a 24x24 box. */
+function starPoints(cx: number, cy: number, outer: number, inner: number): string {
+  const pts: string[] = [];
+  for (let i = 0; i < 10; i++) {
+    const ang = (Math.PI / 5) * i - Math.PI / 2;
+    const r = i % 2 === 0 ? outer : inner;
+    pts.push(`${(cx + r * Math.cos(ang)).toFixed(2)},${(cy + r * Math.sin(ang)).toFixed(2)}`);
+  }
+  return pts.join(" ");
+}
+
+/** Inline-SVG star seal + check. Pure presentation, no deps. */
 export function Seal({ size = 16, animated = false, title = "signature verified" }: SealProps) {
   return (
     <span
@@ -21,23 +33,17 @@ export function Seal({ size = 16, animated = false, title = "signature verified"
       style={{ width: size, height: size }}
     >
       <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
-        {/* the guardian hexagon */}
-        <path
-          className="seal-ring"
-          d="M12 1.6 21 6.8v10.4L12 22.4 3 17.2V6.8z"
-          fill="none"
-          strokeWidth="1.4"
-        />
-        {/* inner attestation glyph */}
+        {/* the guardian star */}
+        <polygon className="seal-ring" points={starPoints(12, 12.5, 10.6, 4.6)} strokeWidth="1.3" />
+        {/* inner attestation check */}
         <path
           className="seal-check"
-          d="M8 12.2l2.6 2.6L16.2 9"
+          d="M8.4 12.4l2.4 2.4L15.8 9.6"
           fill="none"
-          strokeWidth="1.8"
+          strokeWidth="1.7"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-        {animated && <rect className="seal-sweep" x="-24" y="0" width="10" height="24" />}
       </svg>
     </span>
   );

@@ -57,10 +57,23 @@ function rowTone(ev: KirbyEvent): string {
   }
 }
 
+/** A tiny Kirby-mood glyph per row tone — decorative, derived from the event. */
+const TONE_GLYPH: Record<string, string> = {
+  born: "✨", // a new puffball spawns
+  died: "✕", // KO
+  earn: "★", // fed
+  spend: "🍴", // inhaled some sats
+  failover: "💫", // warped to a new node, survived
+  quorum: "🤝", // the quorum co-signs
+  refused: "🛡️", // can't rug it
+  default: "·",
+};
+
 function FeedRow({ ev }: { ev: KirbyEvent }) {
   const tone = rowTone(ev);
   return (
     <li className={`feed-row feed-row--${tone}`}>
+      <span className="feed-glyph" aria-hidden="true">{TONE_GLYPH[tone] ?? "·"}</span>
       <span className="feed-time mono">{clock(ev.created_at)}</span>
       <span className={`feed-kind feed-kind--${tone}`}>{kindLabel(ev.kind)}</span>
       <span className="feed-line">{lineFor(ev)}</span>

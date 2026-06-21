@@ -10,6 +10,8 @@ import { agentBackend, displayLifecycle, leaseHolder } from "../nostr/clusterSta
 import type { Lifecycle } from "../nostr/kinds";
 import { num, dur } from "./format";
 import { Panel } from "./Panel";
+import { Kirby } from "./Kirby";
+import { kirbyMood } from "./kirbyMood";
 
 interface AgentDashboardProps {
   agents: Record<string, AgentView>;
@@ -51,6 +53,16 @@ const LIFECYCLE_COPY: Record<Lifecycle | "unknown", string> = {
   unknown: "pending",
 };
 
+/** Short mood caption under each mascot — pure copy, the face carries the meaning. */
+const MOOD_COPY: Record<ReturnType<typeof kirbyMood>, string> = {
+  happy: "well fed",
+  hungry: "hungry!",
+  ko: "ko'd",
+  spawn: "spawned!",
+  sleepy: "resting",
+  dizzy: "dizzy…",
+};
+
 function AgentCard({ agent }: { agent: AgentView }) {
   const life = displayLifecycle(agent);
   const dead = life === "dead";
@@ -59,6 +71,8 @@ function AgentCard({ agent }: { agent: AgentView }) {
   const treasury = agent.state?.treasury_sats ?? null;
   const runway = agent.state?.runway_secs ?? null;
   const term = agent.state?.lease_term ?? null;
+  // The mascot's expression is a pure function of the real signed state.
+  const mood = kirbyMood(agent);
 
   return (
     <article className={`agent-card agent-card--${life}${dead ? " agent-card--dead" : ""}`}>
@@ -66,6 +80,12 @@ function AgentCard({ agent }: { agent: AgentView }) {
         <span className="agent-id mono">{agent.agent_id}</span>
         <span className={`pill pill--${life}`}>{LIFECYCLE_COPY[life]}</span>
       </header>
+
+      {/* THE HERO — a Kirby whose face reflects this agent's real economic state */}
+      <div className="agent-hero">
+        <Kirby mood={mood} active={life === "running"} />
+        <span className={`agent-mood-label agent-mood-label--${mood}`}>{MOOD_COPY[mood]}</span>
+      </div>
 
       {/* the treasury hero — the metabolic balance */}
       <div className="treasury">

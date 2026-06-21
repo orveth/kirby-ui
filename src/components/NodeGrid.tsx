@@ -9,6 +9,7 @@ import { shortNpub } from "../nostr/verify";
 import { STALE_WINDOW_SECS } from "../config";
 import { ago } from "./format";
 import { Panel } from "./Panel";
+import { Star } from "./Kirby";
 
 interface NodeGridProps {
   nodes: Record<string, NodeView>;
@@ -51,10 +52,11 @@ function NodeCell({ node, now }: { node: NodeView; now: number }) {
   return (
     <article className={`node-cell node-cell--${live}`} data-live={live}>
       <div className="node-cell-top">
-        <span className={`heartbeat heartbeat--${live}`} aria-hidden="true">
-          {/* the pulse ring (alive) or a crossed-out dot (dead) */}
-          <span className="heartbeat-core" />
-          {alive && <span className="heartbeat-ring" />}
+        {/* the node as a Warp Star: bright + twinkling alive, dimmed + KO'd stale */}
+        <span className={`warpstar warpstar--${live}`} aria-hidden="true">
+          <svg viewBox="0 0 26 26" className="warpstar-svg">
+            <Star cx={13} cy={13} r={12} />
+          </svg>
         </span>
         <span className="node-id mono">{node.node_id ?? "unknown-node"}</span>
         <span className={`node-state node-state--${live}`}>{alive ? "ALIVE" : "DEAD · STALE"}</span>

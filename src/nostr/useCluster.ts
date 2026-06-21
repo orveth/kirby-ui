@@ -29,7 +29,11 @@ export interface UseCluster {
   reset: () => void;
 }
 
-export const DEFAULT_RELAY = "ws://127.0.0.1:7777";
+// Build-time default relay: deploys set VITE_RELAY_URL (e.g. the public demo
+// relay) so the served URL "just works" with no query string; dev falls back to
+// localhost. Always overridable at runtime via ?relay= or the header input.
+export const DEFAULT_RELAY: string =
+  import.meta.env.VITE_RELAY_URL ?? "ws://127.0.0.1:7777";
 
 /** Read the initial relay URL from `?relay=`, then localStorage, then default. */
 function initialRelay(): string {
