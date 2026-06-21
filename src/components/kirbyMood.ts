@@ -9,7 +9,7 @@ import { displayLifecycle } from "../nostr/clusterState";
 /** The expressions the Kirby SVG can wear, ranked from worst to best vitals. */
 export type KirbyMood =
   | "ko" //     dead / reaped — X eyes, deflated, a star spinning above
-  | "dizzy" //  halting — woozy spiral eyes
+  | "dizzy" //  dying — woozy/fading spiral eyes (the agent is on its way out)
   | "hungry" // running but starving soon (runway < threshold) — worried, open mouth
   | "happy" //  running and well-fed (treasury present, runway healthy) — content
   | "spawn" //  just born — sparkles, excited
@@ -26,7 +26,7 @@ export const HUNGRY_RUNWAY_SECS = 600;
 export function kirbyMood(agent: AgentView): KirbyMood {
   const life = displayLifecycle(agent);
   if (life === "dead") return "ko";
-  if (life === "halting") return "dizzy";
+  if (life === "dying") return "dizzy";
   if (life === "born") return "spawn";
 
   if (life === "running") {

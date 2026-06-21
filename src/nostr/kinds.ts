@@ -60,7 +60,9 @@ export interface PresenceContent {
   endpoint?: string; // slice-1 informational; absent in doc envelope
 }
 
-export type Lifecycle = "born" | "running" | "halting" | "dead";
+// 31000 emits running | dying | dead; "born" is surfaced from the 9100 lifecycle
+// event (not 31000), and "unknown" is the no-state-yet display case.
+export type Lifecycle = "born" | "running" | "dying" | "dead";
 export type Backend = "firecracker" | "vz";
 
 /** 31000 content. treasury_sats/runway_secs are null until C-4/C-5 wires the
@@ -70,8 +72,8 @@ export interface AgentStateContent {
   treasury_sats: number | null;
   runway_secs: number | null;
   lifecycle: Lifecycle;
-  lease_holder_node: string;
-  lease_term: number;
+  lease_holder_node: string | null; // null on the sovereign path (no Raft lease)
+  lease_term: number | null; // null on the sovereign path
   backend: Backend;
 }
 

@@ -48,7 +48,7 @@ export function AgentDashboard({ agents }: AgentDashboardProps) {
 const LIFECYCLE_COPY: Record<Lifecycle | "unknown", string> = {
   born: "born",
   running: "running",
-  halting: "halting",
+  dying: "dying…",
   dead: "dead · reaped",
   unknown: "pending",
 };
@@ -71,6 +71,9 @@ function AgentCard({ agent }: { agent: AgentView }) {
   const treasury = agent.state?.treasury_sats ?? null;
   const runway = agent.state?.runway_secs ?? null;
   const term = agent.state?.lease_term ?? null;
+  // Sovereign (single-agent, no-Raft) path: 31000 sends a null lease holder/term.
+  // Render it as "sovereign" rather than a pending/failover line.
+  const sovereign = agent.state != null && agent.state.lease_holder_node == null;
   // The mascot's expression is a pure function of the real signed state.
   const mood = kirbyMood(agent);
 
@@ -109,10 +112,22 @@ function AgentCard({ agent }: { agent: AgentView }) {
           {backend == null ? <Pending /> : <span className={`badge badge--${backend} mono`}>{backend}</span>}
         </Field>
         <Field k="lease holder">
-          {holder == null ? <Pending /> : <span className="mono">{holder}</span>}
+          {sovereign ? (
+            <span className="badge mono">sovereign</span>
+          ) : holder == null ? (
+            <Pending />
+          ) : (
+            <span className="mono">{holder}</span>
+          )}
         </Field>
         <Field k="lease term">
-          {term == null ? <Pending /> : <span className="mono">term {num(term)}</span>}
+          {sovereign ? (
+            <span className="mono">—</span>
+          ) : term == null ? (
+            <Pending />
+          ) : (
+            <span className="mono">term {num(term)}</span>
+          )}
         </Field>
       </div>
     </article>
