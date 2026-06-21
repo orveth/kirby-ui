@@ -52,6 +52,10 @@ function RelayField({ relayUrl, setRelayUrl }: Pick<HeaderProps, "relayUrl" | "s
 
 export function Header({ relayStatus, relayUrl, setRelayUrl, ingested, rejected, malformed }: HeaderProps) {
   const hasRejects = rejected > 0;
+  // Honest data-source badge: the UI only knows which relay it reads. The mock
+  // demo relay is :7778; anything else is treated as a live relay. Derived purely
+  // from the URL, so it flips to "live" automatically when pointed at :7777.
+  const isMock = relayUrl.includes(":7778");
 
   return (
     <header className="header">
@@ -71,6 +75,27 @@ export function Header({ relayStatus, relayUrl, setRelayUrl, ingested, rejected,
 
       <div className="header-right">
         <div className="relay" data-status={relayStatus}>
+          <span
+            className="data-source mono"
+            title={
+              isMock
+                ? "Reading the MOCK demo relay (:7778) — a synthetic narrative for evaluating the look"
+                : "Reading a LIVE relay — real signed cluster events"
+            }
+            style={{
+              padding: "2px 8px",
+              borderRadius: 999,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: isMock ? "#ffe36e" : "#8bf5c6",
+              background: isMock ? "rgba(255,227,110,0.14)" : "rgba(139,245,198,0.14)",
+              border: `1px solid ${isMock ? "rgba(255,227,110,0.45)" : "rgba(139,245,198,0.45)"}`,
+            }}
+          >
+            {isMock ? "mock" : "live"}
+          </span>
           <span className={`relay-dot relay-dot--${relayStatus}`} aria-hidden="true" />
           <span className="relay-status mono">{STATUS_LABEL[relayStatus]}</span>
           <RelayField relayUrl={relayUrl} setRelayUrl={setRelayUrl} />
