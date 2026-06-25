@@ -4,21 +4,22 @@
 // wires gateway debits to the cluster treasury), we render an honest "pending"
 // chip, never a fabricated number. A dead agent reads visibly reaped.
 
-import type { ReactNode } from "react";
 import type { AgentView } from "../nostr/clusterState";
 import { agentBackend, displayLifecycle, leaseHolder } from "../nostr/clusterState";
-import type { Lifecycle } from "../nostr/kinds";
 import { num, dur } from "./format";
 import { Panel } from "./Panel";
 import { Kirby } from "./Kirby";
 import { kirbyMood } from "./kirbyMood";
+import { LIFECYCLE_COPY, MOOD_COPY, RunwayBar, Field, Pending } from "./agentFields";
 
 interface AgentDashboardProps {
   agents: Record<string, AgentView>;
   now: number;
+  /** Open the drill-down for an agent (click / Enter / Space on its card). */
+  onSelect?: (agentId: string) => void;
 }
 
-export function AgentDashboard({ agents }: AgentDashboardProps) {
+export function AgentDashboard({ agents, onSelect }: AgentDashboardProps) {
   const list = Object.values(agents).sort((a, b) => a.agent_id.localeCompare(b.agent_id));
 
   return (
@@ -35,7 +36,7 @@ export function AgentDashboard({ agents }: AgentDashboardProps) {
       ) : (
         <div className="agent-grid">
           {list.map((agent) => (
-            <AgentCard key={agent.agent_id} agent={agent} />
+            <AgentCard key={agent.agent_id} agent={agent} onSelect={onSelect} />
           ))}
         </div>
       )}
@@ -43,27 +44,7 @@ export function AgentDashboard({ agents }: AgentDashboardProps) {
   );
 }
 
-/** Lifecycle -> display copy. The data layer never emits invalid values; the
- *  default is just exhaustiveness insurance. */
-const LIFECYCLE_COPY: Record<Lifecycle | "unknown", string> = {
-  born: "born",
-  running: "running",
-  dying: "dying…",
-  dead: "dead · reaped",
-  unknown: "pending",
-};
-
-/** Short mood caption under each mascot — pure copy, the face carries the meaning. */
-const MOOD_COPY: Record<ReturnType<typeof kirbyMood>, string> = {
-  happy: "well fed",
-  hungry: "hungry!",
-  ko: "ko'd",
-  spawn: "spawned!",
-  sleepy: "resting",
-  dizzy: "dizzy…",
-};
-
-function AgentCard({ agent }: { agent: AgentView }) {
+function AgentCard({ agent, onSelect }: { agent: AgentView; onSelect?: (agentId: string) => void }) {
   const life = displayLifecycle(agent);
   const dead = life === "dead";
   const backend = agentBackend(agent);
@@ -77,8 +58,25 @@ function AgentCard({ agent }: { agent: AgentView }) {
   // The mascot's expression is a pure function of the real signed state.
   const mood = kirbyMood(agent);
 
+  const open = onSelect ? () => onSelect(agent.agent_id) : undefined;
+
   return (
-    <article className={`agent-card agent-card--${life}${dead ? " agent-card--dead" : ""}`}>
+    <article
+      className={`agent-card agent-card--${life}${dead ? " agent-card--dead" : ""}${open ? " agent-card--clickable" : ""}`}
+      {...(open
+        ? {
+            role: "button",
+            tabIndex: 0,
+            onClick: open,
+            onKeyDown: (e: React.KeyboardEvent) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                open();
+              }
+            },
+          }
+        : {})}
+    >
       <header className="agent-card-head">
         <span className="agent-id mono">{agent.agent_id}</span>
         <span className={`pill pill--${life}`}>{LIFECYCLE_COPY[life]}</span>
@@ -131,40 +129,5 @@ function AgentCard({ agent }: { agent: AgentView }) {
         </Field>
       </div>
     </article>
-  );
-}
-
-/** A normalized runway bar. We can't know an absolute max runway, so the bar is a
- *  log-scaled fill that reads "lots / some / nearly broke" rather than a precise
- *  ratio — honest about being a vibe, not a claim. Empty + red when dead. */
-function RunwayBar({ treasury, runway, dead }: { treasury: number; runway: number | null; dead: boolean }) {
-  // Prefer runway seconds if present, else fall back to treasury magnitude.
-  const basis = runway ?? treasury;
-  const pct = dead ? 0 : Math.max(2, Math.min(100, (Math.log10(Math.max(1, basis)) / 5) * 100));
-  return (
-    <div className="runway" aria-hidden="true">
-      <div
-        className={`runway-fill${dead ? " runway-fill--dead" : pct < 28 ? " runway-fill--low" : ""}`}
-        style={{ width: `${pct}%` }}
-      />
-    </div>
-  );
-}
-
-function Field({ k, children }: { k: string; children: ReactNode }) {
-  return (
-    <div className="field">
-      <span className="field-k">{k}</span>
-      <span className="field-v">{children}</span>
-    </div>
-  );
-}
-
-/** The dim-amber honesty chip shown wherever the publisher hasn't wired a value. */
-function Pending({ note, big }: { note?: string; big?: boolean }) {
-  return (
-    <span className={`pending${big ? " pending--big" : ""}`} title={note ?? "not yet wired by the cluster"}>
-      pending{note && <span className="pending-note">{note}</span>}
-    </span>
   );
 }

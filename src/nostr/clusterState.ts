@@ -251,3 +251,12 @@ export function agentBackend(agent: AgentView): Backend | null {
 export function leaseHolder(agent: AgentView): string | null {
   return agent.state?.lease_holder_node ?? agent.node_id;
 }
+
+/** This agent's signed events from the live feed (newest-first, like `feed`).
+ *  Bounded by the global feed cap — it is the recent window, not full history.
+ *  Pure render-time derivation; no per-agent index is stored. */
+export function agentTimeline(state: ClusterState, agentId: string): KirbyEvent[] {
+  return state.feed.filter(
+    (e) => "agent_id" in e.content && e.content.agent_id === agentId,
+  );
+}

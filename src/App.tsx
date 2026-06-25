@@ -3,10 +3,13 @@
 // render-time liveness. The whole app is read-only over the relay — its single
 // affordance is choosing the relay and proving it rejects forged events.
 
+import { useEffect, useState } from "react";
 import { useCluster } from "./nostr/useCluster";
+import { agentTimeline } from "./nostr/clusterState";
 import { Header } from "./components/Header";
 import { NodeGrid } from "./components/NodeGrid";
 import { AgentDashboard } from "./components/AgentDashboard";
+import { AgentDetail } from "./components/AgentDetail";
 import { Meters } from "./components/Meters";
 import { Feed } from "./components/Feed";
 import { DemoControls } from "./components/DemoControls";
@@ -16,6 +19,15 @@ import { useClusterSound } from "./audio/useClusterSound";
 
 export default function App() {
   const { state, now, relayStatus, relayUrl, setRelayUrl, injectForged } = useCluster();
+
+  // The drill-down selection. Lives here (the composition root holds `state`), so
+  // the detail modal can read timeline + meter without threading them through the
+  // dashboard. Cleared automatically if the agent vanishes (e.g. relay reset).
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = selectedId ? state.agents[selectedId] : undefined;
+  useEffect(() => {
+    if (selectedId && !state.agents[selectedId]) setSelectedId(null);
+  }, [selectedId, state.agents]);
 
   // Watch the signed cluster state and fire SFX on real transitions (muted by
   // default; the SoundToggle is the opt-in). Skips the relay's back-fill backlog.
@@ -42,7 +54,7 @@ export default function App() {
           <NodeGrid nodes={state.nodes} now={now} />
           <Meters meters={state.meters} now={now} />
         </div>
-        <AgentDashboard agents={state.agents} now={now} />
+        <AgentDashboard agents={state.agents} now={now} onSelect={setSelectedId} />
         <Feed feed={state.feed} now={now} />
       </main>
 
@@ -53,6 +65,17 @@ export default function App() {
 
       {/* confirm-before-sign: renders only when a signature is pending approval */}
       <ConfirmSign />
+
+      {/* agent drill-down: opens when a card is selected */}
+      {selected && (
+        <AgentDetail
+          agent={selected}
+          meter={state.meters[selected.agent_id]}
+          timeline={agentTimeline(state, selected.agent_id)}
+          now={now}
+          onClose={() => setSelectedId(null)}
+        />
+      )}
     </div>
   );
 }
