@@ -1179,6 +1179,17 @@
   }
 
   /* per-tone accents — custody + failover are the headline proofs */
+  .feed-row--note {
+    border-left-color: var(--star);
+    background: linear-gradient(90deg, rgba(255, 227, 110, 0.1), transparent 62%);
+  }
+  .feed-kind--note {
+    color: var(--star);
+  }
+  .feed-note {
+    color: var(--ink-1);
+    font-style: italic;
+  }
   .feed-kind--born,
   .feed-kind--earn {
     color: var(--alive);

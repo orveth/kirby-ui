@@ -64,6 +64,13 @@ export interface ClusterState {
   nodes: Record<string, NodeView>; // key: pubkey
   agents: Record<string, AgentView>; // key: agent_id
   meters: Record<string, MeterView>; // key: agent_id
+  /** signer pubkey -> agent_id, learned from agent-scoped events (31000/21000/9100/...).
+   *  Used to attribute a kind:1 NOTE to its agent WITHOUT a tag: the same key that signs
+   *  an agent's presence/state also signs that agent's notes (pre-FROST the node key signs
+   *  both; post-FROST the agent's Q signs both), so the note's signer resolves the agent.
+   *  Latest-wins per pubkey: across failover a node key may host a new agent, and the most
+   *  recent agent-scoped event from a key reflects the agent it is currently signing for. */
+  pubkeyAgents: Record<string, { agent_id: string; at: number }>; // key: pubkey
   feed: KirbyEvent[]; // 9100-9103, newest first, capped
   /** Total verified Kirby events folded in (a liveness counter for the stream). */
   ingested: number;
@@ -77,6 +84,7 @@ export const emptyCluster: ClusterState = {
   nodes: {},
   agents: {},
   meters: {},
+  pubkeyAgents: {},
   feed: [],
   ingested: 0,
   rejected: 0,
@@ -120,6 +128,21 @@ function touchAgent(
   };
 }
 
+/** Learn (signer pubkey -> agent_id) from an agent-scoped event, latest-wins per
+ *  pubkey. This is what lets a tag-less kind:1 NOTE be attributed to its agent: the
+ *  invariant (verified against the real publisher) is that the same key signing an
+ *  agent's presence/state/lifecycle also signs that agent's notes. */
+function learnPubkeyAgent(
+  index: Record<string, { agent_id: string; at: number }>,
+  pubkey: string,
+  agent_id: string,
+  at: number,
+): Record<string, { agent_id: string; at: number }> {
+  const prev = index[pubkey];
+  if (prev && prev.at >= at) return index;
+  return { ...index, [pubkey]: { agent_id, at } };
+}
+
 /** The pure reducer: fold one verified+decoded Kirby event into the cluster. */
 export function clusterReducer(state: ClusterState, action: ClusterAction): ClusterState {
   switch (action.type) {
@@ -158,6 +181,9 @@ function foldEvent(state: ClusterState, ev: KirbyEvent): ClusterState {
     case KIND.AGENT_STATE: {
       const id = ev.content.agent_id;
       const agents = touchAgent(state.agents, id, ev.created_at, ev.content.lease_holder_node ?? ev.node_id);
+      // The signer of a 31000 is the node currently running `id`; bind its key -> agent_id.
+      const pubkeyAgents = learnPubkeyAgent(state.pubkeyAgents, ev.pubkey, id, ev.created_at);
+      state = { ...state, pubkeyAgents };
       const prev = agents[id];
       // 31000 is addressable per (pubkey, d=agent_id); across failover two NODE
       // keys may both publish for one agent_id. Keep the freshest created_at
@@ -177,6 +203,9 @@ function foldEvent(state: ClusterState, ev: KirbyEvent): ClusterState {
     case KIND.METER_TICK: {
       const id = ev.content.agent_id;
       const agents = touchAgent(state.agents, id, ev.created_at, ev.node_id);
+      // The signer of a meter tick is the node running `id`; bind its key -> agent_id.
+      const pubkeyAgents = learnPubkeyAgent(state.pubkeyAgents, ev.pubkey, id, ev.created_at);
+      state = { ...state, pubkeyAgents };
       const prevMeter = state.meters[id];
       if (prevMeter && prevMeter.at > ev.created_at) return { ...state, agents };
       const meter: MeterView = {
@@ -190,28 +219,59 @@ function foldEvent(state: ClusterState, ev: KirbyEvent): ClusterState {
       return { ...state, agents, meters: { ...state.meters, [id]: meter } };
     }
 
-    // The stored, append-only event-log kinds -> the signed feed.
+    // The stored, append-only event-log kinds -> the signed feed. kind:1 NOTE (the
+    // agent's own public voice) rides this same timeline so the feed shows the
+    // agent's actual words, not just its economic lifecycle.
+    case KIND.NOTE:
     case KIND.LIFECYCLE:
     case KIND.LEDGER:
     case KIND.FAILOVER:
     case KIND.CUSTODY: {
       // dedupe by event id (stored kinds are re-delivered on resubscribe).
       if (state.feed.some((e) => e.id === ev.id)) return state;
+
+      // A kind:1 NOTE carries NO reliable agent tag on real data (the publisher
+      // rejects tags so the signed event matches the at-most-once request). Resolve
+      // its agent_id by: (1) the ["a"] tag if decode found one, else (2) the signer
+      // pubkey in the learned index, else (3) null -> the bare-npub fallback. Then
+      // rewrite the event's content so the feed renders the resolved attribution.
+      let feedEv = ev;
+      if (ev.kind === KIND.NOTE) {
+        const resolved = ev.content.agent_id ?? state.pubkeyAgents[ev.pubkey]?.agent_id ?? null;
+        if (resolved !== ev.content.agent_id) {
+          feedEv = { ...ev, content: { ...ev.content, agent_id: resolved } };
+        }
+      }
+
+      // agent_id is present on every JSON agent-scoped kind; for those, learn the
+      // signer-pubkey -> agent_id binding (the same key that signs a NOTE) and touch
+      // the agent map. For a NOTE we only touch the agent map when the id resolved.
       const agentId =
-        "agent_id" in ev.content ? (ev.content.agent_id as string) : undefined;
+        feedEv.kind === KIND.NOTE
+          ? (feedEv.content.agent_id ?? undefined)
+          : "agent_id" in feedEv.content
+            ? (feedEv.content.agent_id as string | null) ?? undefined
+            : undefined;
+
       let agents = state.agents;
+      let pubkeyAgents = state.pubkeyAgents;
       if (agentId) {
         agents = touchAgent(agents, agentId, ev.created_at, ev.node_id);
-        if (ev.kind === KIND.LIFECYCLE) {
+        if (feedEv.kind === KIND.LIFECYCLE) {
           const prev = agents[agentId];
           agents = {
             ...agents,
-            [agentId]: { ...prev, lastLifecycleEvent: ev.content.event, lastUpdate: ev.created_at },
+            [agentId]: { ...prev, lastLifecycleEvent: feedEv.content.event, lastUpdate: ev.created_at },
           };
         }
+        // A NOTE doesn't reliably carry agent_id, so it never teaches the index
+        // (that would be circular); the JSON agent-scoped kinds do.
+        if (feedEv.kind !== KIND.NOTE) {
+          pubkeyAgents = learnPubkeyAgent(pubkeyAgents, ev.pubkey, agentId, ev.created_at);
+        }
       }
-      const feed = [ev, ...state.feed].slice(0, FEED_CAP);
-      return { ...state, agents, feed };
+      const feed = [feedEv, ...state.feed].slice(0, FEED_CAP);
+      return { ...state, agents, pubkeyAgents, feed };
     }
 
     default:

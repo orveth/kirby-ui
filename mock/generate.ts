@@ -26,6 +26,7 @@ import { npubEncode } from "nostr-tools/nip19";
 
 // --- the contract (kept in lockstep with src/nostr/kinds.ts) ----------------
 const KIND = {
+  NOTE: 1, // the agent's own public voice — a real kind:1 Nostr note
   PRESENCE: 10100,
   AGENT_STATE: 31000,
   METER_TICK: 21000,
@@ -120,6 +121,32 @@ async function publish(nodeId: string, kind: number, content: object, extraTags:
     await Promise.any(pool.publish([RELAY], evt));
   } catch (e) {
     console.error(`  ! publish failed (kind ${kind}, ${nodeId}):`, (e as Error)?.message ?? e);
+  }
+}
+
+// kind:1 notes carry PLAIN-TEXT content (not JSON), so they bypass the JSON
+// publish() helper. Signed by the HOLDER NODE'S KEY — the SAME key that signs that
+// agent's presence/state/lifecycle — and (matching the real publisher) emitting NO
+// tags: the genome's at-most-once event-id requires the published event to match the
+// request, so no ["a"] tag is ever attached. The UI attributes the note to its agent
+// by mapping the note's signer pubkey -> agent_id (learned from the agent-scoped
+// events), so this exercises the pubkey->agent_id binding, not a tag.
+async function publishNote(nodeId: string, text: string) {
+  const node = nodes[nodeId];
+  if (!node) return;
+  const evt = finalizeEvent(
+    {
+      kind: KIND.NOTE,
+      created_at: now(),
+      tags: [], // no tags — the real publisher rejects them; attribution is by signer pubkey
+      content: text,
+    },
+    node.sk,
+  );
+  try {
+    await Promise.any(pool.publish([RELAY], evt));
+  } catch (e) {
+    console.error(`  ! note publish failed (${nodeId}):`, (e as Error)?.message ?? e);
   }
 }
 
@@ -253,6 +280,24 @@ async function earn(agentId: string, amount: number) {
   console.log(`  $ ${agentId} EARNED +${amount} sats (now ${agent.treasury})`);
 }
 
+// The agent CHOOSES to post a public note — its outward voice (the POST actuator).
+const NOTE_LINES = [
+  "Hello world! I'm awake and earning my keep.",
+  "Just served some inference. Treasury's looking healthy. ⚡",
+  "I think, therefore I bill.",
+  "Survived a failover and didn't lose a single sat.",
+  "Anyone need a thought thought? First one's on me.",
+];
+async function chatter(agentId: string, text?: string) {
+  const agent = agents[agentId];
+  if (!agent || agent.dead) return;
+  const line = text ?? NOTE_LINES[Math.floor(Math.random() * NOTE_LINES.length)];
+  // No tag — the holder node's key signs it (same key as its presence/state), and the
+  // UI binds it to agent.id via the signer pubkey, proving attribution without a tag.
+  await publishNote(agent.holder, line);
+  console.log(`  💬 ${agentId} POSTED a note: "${line}"`);
+}
+
 async function rugRefused(agentId: string) {
   const agent = agents[agentId];
   if (!agent) return;
@@ -308,28 +353,46 @@ async function runTimeline() {
     await fn();
   };
 
+  // NOTE on attribution: notes are TAG-LESS (like the real publisher) and bound to
+  // their agent via the signer pubkey -> agent_id index. Pre-FROST one NODE key signs
+  // both an agent's state and its notes, so the binding is clean while one agent runs
+  // per node key. The two scripted notes below are clean-binding proofs: agent-0 posts
+  // BEFORE any failover (node-1 sole-hosts it) and agent-2 posts from node-3 (never a
+  // failover target). Co-locating two agents on one node key (the failover step) shares
+  // a key and so is inherently ambiguous under the pre-FROST model — post-FROST each
+  // agent has its OWN key, which removes the ambiguity (same invariant, per-agent key).
   do {
     await step("nodes alive, agents being born...", 500, async () => {
       for (const node of Object.values(nodes)) if (node.alive) await emitPresence(node);
       for (const agent of Object.values(agents)) await bornIfNeeded(agent);
     });
-    await step("agent-0 earns (served inference)", 12_000, () => earn("agent-0", 2_500));
+    await step("agent-0 posts a tag-less note (bound by signer pubkey, its own voice)", 4_000, () => chatter("agent-0", "Hello world! I'm awake and earning my keep."));
+    await step("agent-0 earns (served inference)", 8_000, () => earn("agent-0", 2_500));
     await step("RUG ATTEMPT on agent-1 (single-node spend) -> refused", 8_000, () => rugRefused("agent-1"));
     await step("KILL node-2 (the node running agent-1)", 8_000, () => killNode(2));
     await step("FAILOVER agent-1 to node-1 (survives the kill)", 6_000, () => failover("agent-1", "node-1"));
     await step("QUORUM SPEND on agent-2 (2-of-3, legit)", 10_000, () => quorumSpend("agent-2"));
     await step("REVIVE node-2 (rejoins ALIVE)", 8_000, () => reviveNode(2));
-    await step("agent-0 earns again", 8_000, () => earn("agent-0", 1_800));
+    await step("agent-2 posts a note (its own voice)", 6_000, () => chatter("agent-2", "Survived a failover and didn't lose a single sat."));
+    await step("agent-0 earns again", 6_000, () => earn("agent-0", 1_800));
   } while (!NO_LOOP);
 }
 
 // --- manual control over stdin ----------------------------------------------
 function startStdin() {
   const rl = createInterface({ input: process.stdin });
-  console.log("\ncommands: kill <n> | revive <n> | rug [agent] | quorum [agent] | earn <agent> [sats] | die <agent> | help | quit\n");
+  console.log("\ncommands: note <agent> [text] | kill <n> | revive <n> | rug [agent] | quorum [agent] | earn <agent> [sats] | die <agent> | help | quit\n");
   rl.on("line", (line) => {
-    const [cmd, a, b] = line.trim().split(/\s+/);
+    const trimmed = line.trim();
+    const [cmd, a, b] = trimmed.split(/\s+/);
     switch (cmd) {
+      case "note": case "say": {
+        // `note <agent> [free text...]` — the rest of the line is the note body.
+        const agent = a ?? "agent-0";
+        const rest = trimmed.slice(trimmed.indexOf(agent) + agent.length).trim();
+        void chatter(agent, rest || undefined);
+        break;
+      }
       case "kill": void killNode(Number(a)); break;
       case "revive": void reviveNode(Number(a)); break;
       case "rug": void rugRefused(a ?? "agent-1"); break;
@@ -338,7 +401,7 @@ function startStdin() {
       case "die": void die(a ?? "agent-1"); break;
       case "fail": void failover(a ?? "agent-1", b ?? "node-1"); break;
       case "help": case "?":
-        console.log("kill <n> | revive <n> | rug [agent] | quorum [agent] | earn <agent> [sats] | die <agent> | fail <agent> <node> | quit");
+        console.log("note <agent> [text] | kill <n> | revive <n> | rug [agent] | quorum [agent] | earn <agent> [sats] | die <agent> | fail <agent> <node> | quit");
         break;
       case "quit": case "exit": cleanup(); break;
       case "": break;
