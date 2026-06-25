@@ -8,11 +8,10 @@
 // and the shared FeedRow / agent-field helpers.
 
 import { useEffect } from "react";
-import type { AgentView, MeterView } from "../nostr/clusterState";
-import { agentBackend, displayLifecycle, leaseHolder, meterIsLive } from "../nostr/clusterState";
+import type { AgentView } from "../nostr/clusterState";
+import { agentBackend, displayLifecycle, leaseHolder } from "../nostr/clusterState";
 import type { KirbyEvent } from "../nostr/kinds";
-import { METER_IDLE_SECS } from "../config";
-import { num, dur, ago, bps } from "./format";
+import { num, dur, ago } from "./format";
 import { shortNpub } from "../nostr/verify";
 import { Kirby } from "./Kirby";
 import { kirbyMood } from "./kirbyMood";
@@ -22,14 +21,13 @@ import { LIFECYCLE_COPY, MOOD_COPY, RunwayBar, Field, Pending } from "./agentFie
 
 interface AgentDetailProps {
   agent: AgentView;
-  meter: MeterView | undefined;
   /** This agent's signed events, newest-first (as `feed` is ordered). */
   timeline: KirbyEvent[];
   now: number;
   onClose: () => void;
 }
 
-export function AgentDetail({ agent, meter, timeline, now, onClose }: AgentDetailProps) {
+export function AgentDetail({ agent, timeline, now, onClose }: AgentDetailProps) {
   // Escape closes (matches the relay-field / ConfirmSign keyboard convention).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -118,15 +116,6 @@ export function AgentDetail({ agent, meter, timeline, now, onClose }: AgentDetai
                     <Seal size={11} title="signature verified" />
                     <span className="mono">{shortNpub(signerNpub)}</span>
                   </span>
-                )}
-              </Field>
-              <Field k="live meter">
-                {meter && meterIsLive(meter, now, METER_IDLE_SECS) ? (
-                  <span className="mono">
-                    {meter.cpu_pct.toFixed(0)}% cpu · {num(meter.mem_mib)} MiB · {bps(meter.egress_bps)}
-                  </span>
-                ) : (
-                  <span className="muted">no signal</span>
                 )}
               </Field>
             </div>

@@ -426,20 +426,12 @@
 @layer layout {
   .grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    grid-template-columns: 1fr;
     gap: var(--pad);
     align-items: start;
   }
   .panel--wide {
     grid-column: 1 / -1;
-  }
-  /* left rail: stack the short panels (nodes + meters) so they fill the column
-     height beside the taller agents hero, instead of leaving a void. */
-  .rail {
-    display: flex;
-    flex-direction: column;
-    gap: var(--pad);
-    min-width: 0;
   }
 }
 
