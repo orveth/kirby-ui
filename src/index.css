@@ -2091,7 +2091,11 @@
 .detail-modal {
   width: min(760px, 100%);
   max-height: 88vh;
-  overflow: auto;
+  /* clip cleanly to the rounded corners; the timeline scrolls internally so the
+     scrollbar never runs flush against (or over) the modal's rounded edge */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .detail-modal .auth-modal-head h2 {
   font-size: 16px;
@@ -2126,6 +2130,18 @@
   margin-top: 20px;
   border-top: 1px solid var(--line);
   padding-top: 14px;
+  /* the only scroll region: takes the remaining height and scrolls its own list,
+     so the scrollbar sits inside the content, inset from the modal's edge */
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.detail-timeline .feed {
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
 }
 .detail-timeline-head {
   display: flex;
