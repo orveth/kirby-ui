@@ -320,3 +320,47 @@ export function agentTimeline(state: ClusterState, agentId: string): KirbyEvent[
     (e) => "agent_id" in e.content && e.content.agent_id === agentId,
   );
 }
+
+/** Cluster-wide rollup for the fleet-overview band — pure derivation over the
+ *  current model + render clock (so node liveness is computed against `now`). */
+export interface FleetSummary {
+  agentsTotal: number;
+  agentsRunning: number;
+  agentsDead: number;
+  /** Sum of known agent treasuries (sats). Agents with no 31000 yet contribute 0. */
+  treasurySats: number;
+  nodesTotal: number;
+  nodesAlive: number;
+  /** Signed feed events held, and agent posts held (the voice). */
+  signed: number;
+  posts: number;
+}
+
+export function fleetSummary(state: ClusterState, now: number, staleWindowSecs: number): FleetSummary {
+  const agents = Object.values(state.agents);
+  let agentsRunning = 0;
+  let agentsDead = 0;
+  let treasurySats = 0;
+  for (const a of agents) {
+    const life = displayLifecycle(a);
+    if (life === "running") agentsRunning++;
+    else if (life === "dead") agentsDead++;
+    treasurySats += a.state?.treasury_sats ?? 0;
+  }
+  const nodes = Object.values(state.nodes);
+  const nodesAlive = nodes.filter((n) => nodeLiveness(n, now, staleWindowSecs) === "alive").length;
+
+  // notes (the agent voice) ride the signed feed as kind:1 — count them out of it.
+  const posts = state.feed.reduce((n, e) => (e.kind === KIND.NOTE ? n + 1 : n), 0);
+
+  return {
+    agentsTotal: agents.length,
+    agentsRunning,
+    agentsDead,
+    treasurySats,
+    nodesTotal: nodes.length,
+    nodesAlive,
+    signed: state.feed.length,
+    posts,
+  };
+}

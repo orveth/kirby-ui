@@ -5,9 +5,11 @@
 
 import { useEffect, useState } from "react";
 import { useCluster } from "./nostr/useCluster";
-import { agentTimeline } from "./nostr/clusterState";
+import { agentTimeline, fleetSummary } from "./nostr/clusterState";
 import { useWatchlist } from "./nostr/watchlist";
+import { STALE_WINDOW_SECS } from "./config";
 import { Header } from "./components/Header";
+import { FleetOverview } from "./components/FleetOverview";
 import { NodeGrid } from "./components/NodeGrid";
 import { AgentDashboard } from "./components/AgentDashboard";
 import { AgentDetail } from "./components/AgentDetail";
@@ -51,8 +53,8 @@ export default function App() {
       />
 
       <main className="grid">
-        {/* nodes as a compact full-width strip on top, then the agents hero, then
-            the signed feed — all full-width bands, no half-empty columns */}
+        {/* cluster vitals at a glance, then nodes, the agents hero, the signed feed */}
+        <FleetOverview summary={fleetSummary(state, now, STALE_WINDOW_SECS)} />
         <NodeGrid nodes={state.nodes} now={now} />
         <AgentDashboard
           agents={state.agents}
