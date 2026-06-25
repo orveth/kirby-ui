@@ -15,7 +15,6 @@ interface HeaderProps {
   setRelayUrl: (url: string) => void;
   ingested: ClusterState["ingested"];
   rejected: ClusterState["rejected"];
-  malformed: ClusterState["malformed"];
 }
 
 const STATUS_LABEL: Record<RelayStatus, string> = {
@@ -51,7 +50,7 @@ function RelayField({ relayUrl, setRelayUrl }: Pick<HeaderProps, "relayUrl" | "s
   );
 }
 
-export function Header({ relayStatus, relayUrl, setRelayUrl, ingested, rejected, malformed }: HeaderProps) {
+export function Header({ relayStatus, relayUrl, setRelayUrl, ingested, rejected }: HeaderProps) {
   const hasRejects = rejected > 0;
   // Honest data-source badge: the UI only knows which relay it reads. The mock
   // demo relay is :7778; anything else is treated as a live relay. Derived purely
@@ -102,10 +101,19 @@ export function Header({ relayStatus, relayUrl, setRelayUrl, ingested, rejected,
           <RelayField relayUrl={relayUrl} setRelayUrl={setRelayUrl} />
         </div>
 
-        <div className="counters" aria-label="stream counters">
-          <Counter label="verified" value={ingested} tone="ok" seal />
-          <Counter label="rejected" value={rejected} tone={hasRejects ? "alarm" : "muted"} flare={hasRejects} />
-          <Counter label="malformed" value={malformed} tone={malformed > 0 ? "warn" : "muted"} />
+        {/* verification proof, compact: a crest with the verified tally. The
+            rejected alarm is hidden at zero and flares loud the moment a forged
+            event is caught (the "you can't fake it" payoff). */}
+        <div className="verify" aria-label="signature verification">
+          <span className="verify-crest" title={`${num(ingested)} events signature-verified`}>
+            <Seal size={14} />
+            <span className="verify-count mono">{num(ingested)}</span>
+          </span>
+          {hasRejects && (
+            <span className="verify-alarm" title="forged events caught and dropped, never rendered">
+              <span className="verify-alarm-n mono">{num(rejected)}</span> rejected
+            </span>
+          )}
         </div>
 
         <LoginControl />
@@ -114,24 +122,3 @@ export function Header({ relayStatus, relayUrl, setRelayUrl, ingested, rejected,
   );
 }
 
-interface CounterProps {
-  label: string;
-  value: number;
-  tone: "ok" | "alarm" | "warn" | "muted";
-  /** Mark this counter with the signed seal (the verified-events tally). */
-  seal?: boolean;
-  /** Pulse when non-zero (the rejected counter, the "we caught a fake" beat). */
-  flare?: boolean;
-}
-
-function Counter({ label, value, tone, seal, flare }: CounterProps) {
-  return (
-    <div className={`counter counter--${tone}${flare ? " counter--flare" : ""}`}>
-      <span className="counter-value mono">{num(value)}</span>
-      <span className="counter-label">
-        {seal && <Seal size={11} title="every counted event is signature-verified" />}
-        {label}
-      </span>
-    </div>
-  );
-}

@@ -2033,3 +2033,48 @@
 .confirm-actions .auth-submit {
   margin-top: 0;
 }
+
+/* verification proof (replaces the old three counter boxes): a compact crest +
+   a rejected alarm that is hidden at zero and flares when a forgery is caught. */
+.verify {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.verify-crest {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  background: var(--surf-0);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.verify-count {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--sig);
+}
+.verify-alarm {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffd2da;
+  background: rgba(255, 94, 122, 0.16);
+  border: 1px solid rgba(255, 94, 122, 0.5);
+  box-shadow: var(--glow-dead);
+  animation: softpulse 1.1s ease-in-out infinite;
+}
+.verify-alarm-n {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--dead);
+}

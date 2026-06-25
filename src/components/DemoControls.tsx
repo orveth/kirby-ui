@@ -22,7 +22,7 @@ export function DemoControls({ injectForged }: DemoControlsProps) {
         </button>
         <p className="demo-caption">
           Every signature is verified. Forged state is <strong>rejected, never rendered</strong> — watch the
-          rejected counter tick.
+          rejected alarm flare in the header.
         </p>
       </div>
 
