@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { useCluster } from "./nostr/useCluster";
 import { agentTimeline } from "./nostr/clusterState";
+import { useWatchlist } from "./nostr/watchlist";
 import { Header } from "./components/Header";
 import { NodeGrid } from "./components/NodeGrid";
 import { AgentDashboard } from "./components/AgentDashboard";
@@ -27,6 +28,9 @@ export default function App() {
   useEffect(() => {
     if (selectedId && !state.agents[selectedId]) setSelectedId(null);
   }, [selectedId, state.agents]);
+
+  // The personal layer: agents the user has starred to follow (localStorage).
+  const watchlist = useWatchlist();
 
   // Watch the signed cluster state and fire SFX on real transitions (muted by
   // default; the SoundToggle is the opt-in). Skips the relay's back-fill backlog.
@@ -50,7 +54,13 @@ export default function App() {
         {/* nodes as a compact full-width strip on top, then the agents hero, then
             the signed feed — all full-width bands, no half-empty columns */}
         <NodeGrid nodes={state.nodes} now={now} />
-        <AgentDashboard agents={state.agents} now={now} onSelect={setSelectedId} />
+        <AgentDashboard
+          agents={state.agents}
+          now={now}
+          onSelect={setSelectedId}
+          watched={watchlist.watched}
+          onToggleWatch={watchlist.toggle}
+        />
         <Feed feed={state.feed} now={now} />
       </main>
 
