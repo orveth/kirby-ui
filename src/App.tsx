@@ -11,6 +11,7 @@ import { Meters } from "./components/Meters";
 import { Feed } from "./components/Feed";
 import { DemoControls } from "./components/DemoControls";
 import { SoundToggle } from "./components/SoundToggle";
+import { ConfirmSign } from "./components/ConfirmSign";
 import { useClusterSound } from "./audio/useClusterSound";
 
 export default function App() {
@@ -47,6 +48,9 @@ export default function App() {
 
       {/* floating sound control (muted by default; opt-in unmute) */}
       <SoundToggle />
+
+      {/* confirm-before-sign: renders only when a signature is pending approval */}
+      <ConfirmSign />
     </div>
   );
 }

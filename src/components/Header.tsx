@@ -7,6 +7,7 @@ import type { RelayStatus } from "../nostr/useCluster";
 import type { ClusterState } from "../nostr/clusterState";
 import { num } from "./format";
 import { Seal } from "./Seal";
+import { LoginControl } from "./NostrLogin";
 
 interface HeaderProps {
   relayStatus: RelayStatus;
@@ -106,6 +107,8 @@ export function Header({ relayStatus, relayUrl, setRelayUrl, ingested, rejected,
           <Counter label="rejected" value={rejected} tone={hasRejects ? "alarm" : "muted"} flare={hasRejects} />
           <Counter label="malformed" value={malformed} tone={malformed > 0 ? "warn" : "muted"} />
         </div>
+
+        <LoginControl />
       </div>
     </header>
   );
