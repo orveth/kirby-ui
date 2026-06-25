@@ -46,6 +46,27 @@ export type BuildResult =
   | { ok: true; template: EventTemplate }
   | { ok: false; error: string };
 
+/** The agent's purpose/persona, assembled into the genome_config the spawn request
+ *  carries. NOTE: the node accepts + size-bounds genome_config but does not yet
+ *  consume it (the MVP derives the child's config host-side) — so this rides the
+ *  signed request ready for when nodes read it; until then it shapes nothing. */
+export interface GenomeInput {
+  /** What the agent is for (its mission/task descriptor). */
+  mission?: string;
+  /** How it behaves / its voice (persona). */
+  persona?: string;
+}
+
+/** Build the genome_config object, including only the non-empty, trimmed fields. */
+export function buildGenomeConfig(input: GenomeInput): Record<string, string> {
+  const out: Record<string, string> = {};
+  const mission = input.mission?.trim();
+  const persona = input.persona?.trim();
+  if (mission) out.mission = mission;
+  if (persona) out.persona = persona;
+  return out;
+}
+
 /** Validate an agent_id, mirroring validate_agent_label. Returns an error message
  *  or null if valid. */
 export function validateAgentId(id: string): string | null {

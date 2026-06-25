@@ -11,6 +11,7 @@ import {
   validateAgentId,
   validateSeedSats,
   validateImageRef,
+  buildGenomeConfig,
   buildSpawnRequestTemplate,
 } from "./spawnRequest";
 
@@ -71,6 +72,24 @@ test("validateImageRef rejects an empty ref", () => {
 
 test("validateImageRef accepts a non-empty ref", () => {
   expect(validateImageRef("kirby-demo:latest")).toBeNull();
+});
+
+// --- buildGenomeConfig (mission/persona -> genome_config) -------------------
+
+test("buildGenomeConfig is empty when nothing is given", () => {
+  expect(buildGenomeConfig({})).toEqual({});
+  expect(buildGenomeConfig({ mission: "  ", persona: "" })).toEqual({});
+});
+
+test("buildGenomeConfig includes only the non-empty, trimmed fields", () => {
+  expect(buildGenomeConfig({ mission: "  earn sats by posting  " })).toEqual({
+    mission: "earn sats by posting",
+  });
+  expect(buildGenomeConfig({ persona: "terse, dry wit" })).toEqual({ persona: "terse, dry wit" });
+  expect(buildGenomeConfig({ mission: "trade", persona: "bold" })).toEqual({
+    mission: "trade",
+    persona: "bold",
+  });
 });
 
 // --- buildSpawnRequestTemplate (mirrors build_spawn_request_event) ----------

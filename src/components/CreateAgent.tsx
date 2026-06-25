@@ -12,15 +12,18 @@ import { useState } from "react";
 import { decode } from "nostr-tools/nip19";
 import { useNostrAuth } from "../nostr/useNostrAuth";
 import {
+  buildGenomeConfig,
   buildSpawnRequestTemplate,
   validateAgentId,
   validateSeedSats,
-  validateImageRef,
 } from "../nostr/spawnRequest";
 
-/** A build-time default staged image, if a deploy sets one (else the field starts
- *  empty and the operator pastes the ref their node pre-staged). */
-const DEFAULT_IMAGE_REF: string = import.meta.env.VITE_SPAWN_IMAGE_REF ?? "";
+/** The image every node is assumed to pre-stage for now, so creating an agent is
+ *  just "name + purpose + fund" — no image to pick. This MUST match the image the
+ *  target nodes actually stage (they default-deny an unknown ref); a deploy overrides
+ *  it with VITE_SPAWN_IMAGE_REF. A node-advertised image list (turtle's lane) will
+ *  later replace this constant with a real picker. */
+const IMAGE_REF: string = import.meta.env.VITE_SPAWN_IMAGE_REF ?? "kirby-agent:latest";
 const DEFAULT_SEED_SATS = 50_000;
 
 interface CreateAgentProps {
@@ -63,8 +66,9 @@ function CreateModal({
   const operatorHex = npubToHex(npub);
 
   const [agentId, setAgentId] = useState("");
+  const [mission, setMission] = useState("");
+  const [persona, setPersona] = useState("");
   const [seedStr, setSeedStr] = useState(String(DEFAULT_SEED_SATS));
-  const [imageRef, setImageRef] = useState(DEFAULT_IMAGE_REF);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submittedId, setSubmittedId] = useState<string | null>(null);
@@ -72,22 +76,15 @@ function CreateModal({
   const seedSats = Number(seedStr);
   const idErr = agentId.length > 0 ? validateAgentId(agentId) : null;
   const seedErr = seedStr.length > 0 ? validateSeedSats(seedSats) : null;
-  const imgErr = imageRef.length > 0 ? validateImageRef(imageRef) : null;
-  const ready =
-    authed &&
-    agentId.length > 0 &&
-    imageRef.trim().length > 0 &&
-    seedStr.length > 0 &&
-    !idErr &&
-    !seedErr &&
-    !imgErr;
+  const ready = authed && agentId.length > 0 && seedStr.length > 0 && !idErr && !seedErr;
 
   const submit = async () => {
     setError(null);
     const built = buildSpawnRequestTemplate({
       agentId,
-      imageRef: imageRef.trim(),
+      imageRef: IMAGE_REF,
       seedSats,
+      genomeConfig: buildGenomeConfig({ mission, persona }),
       requesterPubkey: operatorHex,
       createdAt: Math.floor(Date.now() / 1000),
     });
@@ -99,7 +96,7 @@ function CreateModal({
     try {
       const signed = await signEvent(
         built.template,
-        `Create agent “${agentId}” — fund ${seedSats.toLocaleString()} sats, image ${imageRef.trim()}`,
+        `Create agent “${agentId}” — fund ${seedSats.toLocaleString()} sats${mission.trim() ? `, mission: ${mission.trim()}` : ""}`,
       );
       await publish(signed);
       setSubmittedId(agentId);
@@ -141,6 +138,22 @@ function CreateModal({
             />
             {idErr && <p className="auth-error">{idErr}</p>}
 
+            <label>Mission — what is it for?</label>
+            <textarea
+              rows={2}
+              value={mission}
+              placeholder="earn sats by posting useful notes about…"
+              onChange={(e) => setMission(e.target.value)}
+            />
+
+            <label>Persona — how does it behave / sound?</label>
+            <textarea
+              rows={2}
+              value={persona}
+              placeholder="terse, dry wit, signs off with a 🐡"
+              onChange={(e) => setPersona(e.target.value)}
+            />
+
             <label>Seed treasury (sats)</label>
             <input
               className="mono"
@@ -150,18 +163,10 @@ function CreateModal({
             />
             {seedErr && <p className="auth-error">{seedErr}</p>}
 
-            <label>Image ref</label>
-            <input
-              className="mono"
-              value={imageRef}
-              placeholder="the image your node pre-staged"
-              onChange={(e) => setImageRef(e.target.value)}
-            />
-            {imgErr && <p className="auth-error">{imgErr}</p>}
-
             <p className="auth-fine">
               Funding is declarative (deposit-and-meter) — no token travels on the relay. The node re-validates and only
-              spawns if your key is allowlisted.
+              spawns if your key is allowlisted. Mission &amp; persona ride along in the signed request and shape the
+              agent once nodes consume them (wiring in progress) — until then they record your intent.
             </p>
 
             {error && <p className="auth-error">{error}</p>}
