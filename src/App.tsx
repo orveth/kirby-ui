@@ -11,6 +11,7 @@ import { Meters } from "./components/Meters";
 import { Feed } from "./components/Feed";
 import { DemoControls } from "./components/DemoControls";
 import { SoundToggle } from "./components/SoundToggle";
+import { ConfirmSign } from "./components/ConfirmSign";
 import { useClusterSound } from "./audio/useClusterSound";
 
 export default function App() {
@@ -31,15 +32,17 @@ export default function App() {
         relayStatus={relayStatus}
         relayUrl={relayUrl}
         setRelayUrl={setRelayUrl}
-        ingested={state.ingested}
         rejected={state.rejected}
-        malformed={state.malformed}
       />
 
       <main className="grid">
-        <NodeGrid nodes={state.nodes} now={now} />
+        {/* left rail: the two short panels stacked so they fill the column height
+            instead of leaving a void beside the taller agents panel */}
+        <div className="rail">
+          <NodeGrid nodes={state.nodes} now={now} />
+          <Meters meters={state.meters} now={now} />
+        </div>
         <AgentDashboard agents={state.agents} now={now} />
-        <Meters meters={state.meters} now={now} />
         <Feed feed={state.feed} now={now} />
       </main>
 
@@ -47,6 +50,9 @@ export default function App() {
 
       {/* floating sound control (muted by default; opt-in unmute) */}
       <SoundToggle />
+
+      {/* confirm-before-sign: renders only when a signature is pending approval */}
+      <ConfirmSign />
     </div>
   );
 }
