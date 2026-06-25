@@ -2077,3 +2077,78 @@
   font-size: 14px;
   color: var(--dead);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Agent drill-down (detail modal). Reuses .auth-overlay/.auth-modal; widens it
+   and lays out hero + current state + signed timeline.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* a card you can open reads as interactive */
+.agent-card--clickable {
+  cursor: pointer;
+}
+.agent-card--clickable:hover {
+  border-color: var(--line-bright);
+}
+.agent-card--clickable:focus-visible {
+  outline: 2px solid var(--kirby-hot);
+  outline-offset: 2px;
+}
+
+/* wide variant of the shared modal shell */
+.detail-modal {
+  width: min(760px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+}
+.detail-modal .auth-modal-head h2 {
+  font-size: 16px;
+  color: var(--ink-1);
+}
+
+.detail-top {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: clamp(16px, 3vw, 30px);
+  align-items: center;
+}
+.detail-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.detail-state {
+  min-width: 0;
+}
+.detail-state .agent-meta {
+  grid-template-columns: 1fr 1fr;
+}
+.detail-signer {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.detail-timeline {
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.detail-timeline-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 620px) {
+  .detail-top {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+  .detail-state .agent-meta {
+    grid-template-columns: 1fr;
+  }
+}
