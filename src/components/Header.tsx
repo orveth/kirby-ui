@@ -13,7 +13,6 @@ interface HeaderProps {
   relayStatus: RelayStatus;
   relayUrl: string;
   setRelayUrl: (url: string) => void;
-  ingested: ClusterState["ingested"];
   rejected: ClusterState["rejected"];
 }
 
@@ -50,7 +49,7 @@ function RelayField({ relayUrl, setRelayUrl }: Pick<HeaderProps, "relayUrl" | "s
   );
 }
 
-export function Header({ relayStatus, relayUrl, setRelayUrl, ingested, rejected }: HeaderProps) {
+export function Header({ relayStatus, relayUrl, setRelayUrl, rejected }: HeaderProps) {
   const hasRejects = rejected > 0;
   // Honest data-source badge: the UI only knows which relay it reads. The mock
   // demo relay is :7778; anything else is treated as a live relay. Derived purely
@@ -101,20 +100,13 @@ export function Header({ relayStatus, relayUrl, setRelayUrl, ingested, rejected 
           <RelayField relayUrl={relayUrl} setRelayUrl={setRelayUrl} />
         </div>
 
-        {/* verification proof, compact: a crest with the verified tally. The
-            rejected alarm is hidden at zero and flares loud the moment a forged
-            event is caught (the "you can't fake it" payoff). */}
-        <div className="verify" aria-label="signature verification">
-          <span className="verify-crest" title={`${num(ingested)} events signature-verified`}>
-            <Seal size={14} />
-            <span className="verify-count mono">{num(ingested)}</span>
+        {/* the rejected alarm is hidden in normal use and flares loud the moment a
+            forged event is caught (the "you can't fake it" payoff). No idle counter. */}
+        {hasRejects && (
+          <span className="verify-alarm" title="forged events caught and dropped, never rendered">
+            <span className="verify-alarm-n mono">{num(rejected)}</span> rejected
           </span>
-          {hasRejects && (
-            <span className="verify-alarm" title="forged events caught and dropped, never rendered">
-              <span className="verify-alarm-n mono">{num(rejected)}</span> rejected
-            </span>
-          )}
-        </div>
+        )}
 
         <LoginControl />
       </div>

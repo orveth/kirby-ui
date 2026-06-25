@@ -32,14 +32,17 @@ export default function App() {
         relayStatus={relayStatus}
         relayUrl={relayUrl}
         setRelayUrl={setRelayUrl}
-        ingested={state.ingested}
         rejected={state.rejected}
       />
 
       <main className="grid">
-        <NodeGrid nodes={state.nodes} now={now} />
+        {/* left rail: the two short panels stacked so they fill the column height
+            instead of leaving a void beside the taller agents panel */}
+        <div className="rail">
+          <NodeGrid nodes={state.nodes} now={now} />
+          <Meters meters={state.meters} now={now} />
+        </div>
         <AgentDashboard agents={state.agents} now={now} />
-        <Meters meters={state.meters} now={now} />
         <Feed feed={state.feed} now={now} />
       </main>
 

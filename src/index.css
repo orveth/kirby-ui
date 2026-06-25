@@ -426,12 +426,20 @@
 @layer layout {
   .grid {
     display: grid;
-    grid-template-columns: 1.1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
     gap: var(--pad);
-    align-content: start;
+    align-items: start;
   }
   .panel--wide {
     grid-column: 1 / -1;
+  }
+  /* left rail: stack the short panels (nodes + meters) so they fill the column
+     height beside the taller agents hero, instead of leaving a void. */
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pad);
+    min-width: 0;
   }
 }
 
@@ -2034,28 +2042,8 @@
   margin-top: 0;
 }
 
-/* verification proof (replaces the old three counter boxes): a compact crest +
-   a rejected alarm that is hidden at zero and flares when a forgery is caught. */
-.verify {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.verify-crest {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 6px 12px;
-  background: var(--surf-0);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-}
-.verify-count {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 14px;
-  color: var(--sig);
-}
+/* the rejected alarm: hidden at zero, flares loud when a forged event is caught.
+   No idle verified counter — the header stays clean in normal use. */
 .verify-alarm {
   display: inline-flex;
   align-items: center;
