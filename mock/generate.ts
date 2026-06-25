@@ -125,16 +125,20 @@ async function publish(nodeId: string, kind: number, content: object, extraTags:
 }
 
 // kind:1 notes carry PLAIN-TEXT content (not JSON), so they bypass the JSON
-// publish() helper. Signed by the holder node's key, tagged ["a",agent_id] so the
-// UI can attribute the note to its failover-stable agent (same as real publisher).
-async function publishNote(nodeId: string, text: string, agentId: string) {
+// publish() helper. Signed by the HOLDER NODE'S KEY — the SAME key that signs that
+// agent's presence/state/lifecycle — and (matching the real publisher) emitting NO
+// tags: the genome's at-most-once event-id requires the published event to match the
+// request, so no ["a"] tag is ever attached. The UI attributes the note to its agent
+// by mapping the note's signer pubkey -> agent_id (learned from the agent-scoped
+// events), so this exercises the pubkey->agent_id binding, not a tag.
+async function publishNote(nodeId: string, text: string) {
   const node = nodes[nodeId];
   if (!node) return;
   const evt = finalizeEvent(
     {
       kind: KIND.NOTE,
       created_at: now(),
-      tags: [["t", "kirby"], ["a", agentId], ["node", nodeId]],
+      tags: [], // no tags — the real publisher rejects them; attribution is by signer pubkey
       content: text,
     },
     node.sk,
@@ -288,7 +292,9 @@ async function chatter(agentId: string, text?: string) {
   const agent = agents[agentId];
   if (!agent || agent.dead) return;
   const line = text ?? NOTE_LINES[Math.floor(Math.random() * NOTE_LINES.length)];
-  await publishNote(agent.holder, line, agent.id);
+  // No tag — the holder node's key signs it (same key as its presence/state), and the
+  // UI binds it to agent.id via the signer pubkey, proving attribution without a tag.
+  await publishNote(agent.holder, line);
   console.log(`  💬 ${agentId} POSTED a note: "${line}"`);
 }
 
@@ -347,12 +353,20 @@ async function runTimeline() {
     await fn();
   };
 
+  // NOTE on attribution: notes are TAG-LESS (like the real publisher) and bound to
+  // their agent via the signer pubkey -> agent_id index. Pre-FROST one NODE key signs
+  // both an agent's state and its notes, so the binding is clean while one agent runs
+  // per node key. The two scripted notes below are clean-binding proofs: agent-0 posts
+  // BEFORE any failover (node-1 sole-hosts it) and agent-2 posts from node-3 (never a
+  // failover target). Co-locating two agents on one node key (the failover step) shares
+  // a key and so is inherently ambiguous under the pre-FROST model — post-FROST each
+  // agent has its OWN key, which removes the ambiguity (same invariant, per-agent key).
   do {
     await step("nodes alive, agents being born...", 500, async () => {
       for (const node of Object.values(nodes)) if (node.alive) await emitPresence(node);
       for (const agent of Object.values(agents)) await bornIfNeeded(agent);
     });
-    await step("agent-0 posts a note (its own voice)", 4_000, () => chatter("agent-0", "Hello world! I'm awake and earning my keep."));
+    await step("agent-0 posts a tag-less note (bound by signer pubkey, its own voice)", 4_000, () => chatter("agent-0", "Hello world! I'm awake and earning my keep."));
     await step("agent-0 earns (served inference)", 8_000, () => earn("agent-0", 2_500));
     await step("RUG ATTEMPT on agent-1 (single-node spend) -> refused", 8_000, () => rugRefused("agent-1"));
     await step("KILL node-2 (the node running agent-1)", 8_000, () => killNode(2));

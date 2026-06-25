@@ -100,8 +100,11 @@ export interface MeterTickContent {
 
 /** kind:1 "content". A real Nostr text note's content is the PLAIN-TEXT body, not
  *  JSON, so unlike the other kinds this is synthesized at decode time: `text` is the
- *  note body verbatim and `agent_id` is read from the ["a",agent_id] tag (the
- *  publisher's agent-scope tag), or null if the note carries no agent tag. */
+ *  note body verbatim. `agent_id` is the attributed agent: at decode time it is the
+ *  ["a",agent_id] tag if present, else null; the reducer then resolves a null by
+ *  mapping the note's SIGNER PUBKEY -> agent_id (the real publisher emits NO tags, so
+ *  the tag path never fires on live data — the pubkey index is the binding). Still
+ *  null after that -> the feed falls back to the bare signer npub. */
 export interface NoteContent {
   agent_id: string | null;
   text: string;
@@ -189,8 +192,8 @@ export function decodeKirbyEvent(ev: NostrEvent): KirbyEvent | null {
 
   // kind:1 is a real Nostr text note: its content is the PLAIN-TEXT body, not JSON.
   // Decode it before the JSON.parse below (which would otherwise discard it). The
-  // agent attribution rides the ["a",agent_id] tag the publisher already attaches
-  // to agent-scoped events; it stays null if the note isn't agent-tagged.
+  // ["a",agent_id] tag is read here only as a hint (the real publisher emits none);
+  // the reducer resolves a null agent_id from the signer pubkey -> agent_id index.
   if (ev.kind === KIND.NOTE) {
     const text = ev.content.trim();
     if (text.length === 0) return null; // empty note -> nothing to surface
