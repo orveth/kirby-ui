@@ -10,7 +10,6 @@ import { Header } from "./components/Header";
 import { NodeGrid } from "./components/NodeGrid";
 import { AgentDashboard } from "./components/AgentDashboard";
 import { AgentDetail } from "./components/AgentDetail";
-import { Meters } from "./components/Meters";
 import { Feed } from "./components/Feed";
 import { DemoControls } from "./components/DemoControls";
 import { SoundToggle } from "./components/SoundToggle";
@@ -48,12 +47,9 @@ export default function App() {
       />
 
       <main className="grid">
-        {/* left rail: the two short panels stacked so they fill the column height
-            instead of leaving a void beside the taller agents panel */}
-        <div className="rail">
-          <NodeGrid nodes={state.nodes} now={now} />
-          <Meters meters={state.meters} now={now} />
-        </div>
+        {/* nodes as a compact full-width strip on top, then the agents hero, then
+            the signed feed — all full-width bands, no half-empty columns */}
+        <NodeGrid nodes={state.nodes} now={now} />
         <AgentDashboard agents={state.agents} now={now} onSelect={setSelectedId} />
         <Feed feed={state.feed} now={now} />
       </main>
@@ -70,7 +66,6 @@ export default function App() {
       {selected && (
         <AgentDetail
           agent={selected}
-          meter={state.meters[selected.agent_id]}
           timeline={agentTimeline(state, selected.agent_id)}
           now={now}
           onClose={() => setSelectedId(null)}
