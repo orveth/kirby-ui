@@ -26,6 +26,9 @@ export interface UseCluster {
   /** Dev/demo: feed a FORGED (bad-sig) event into the verify path to prove the
    *  UI rejects it (it never reaches the model; the rejected counter ticks). */
   injectForged: () => void;
+  /** Publish a signed event to the connected relay (the control-plane write path,
+   *  e.g. a 31003 spawn request). Resolves once at least one relay accepts it. */
+  publish: (ev: NostrEvent) => Promise<void>;
   reset: () => void;
 }
 
@@ -54,6 +57,10 @@ export function useCluster(): UseCluster {
   const [relayStatus, setRelayStatus] = useState<RelayStatus>("connecting");
   const [relayUrl, setRelayUrlState] = useState<string>(initialRelay);
 
+  // The live relay pool, kept in a ref so the control-plane write path (publish)
+  // can reuse the same connection the read subscription owns.
+  const poolRef = useRef<SimplePool | null>(null);
+
   // The render-time clock: tick once a second so a node can "go stale" without a
   // new event arriving.
   useEffect(() => {
@@ -69,6 +76,7 @@ export function useCluster(): UseCluster {
     setRelayStatus("connecting");
 
     const pool = new SimplePool();
+    poolRef.current = pool;
     pool.onRelayConnectionSuccess = () => setRelayStatus("connected");
     pool.onRelayConnectionFailure = () => setRelayStatus("error");
 
@@ -103,6 +111,7 @@ export function useCluster(): UseCluster {
     return () => {
       sub.close();
       pool.destroy();
+      poolRef.current = null;
     };
   }, [relayUrl]);
 
@@ -152,5 +161,14 @@ export function useCluster(): UseCluster {
   const relayRef = useRef(relayUrl);
   relayRef.current = relayUrl;
 
-  return { state, now, relayStatus, relayUrl, setRelayUrl, injectForged, reset };
+  // Publish a signed event to the current relay over the existing pool. The pool
+  // returns one promise per relay; resolve as soon as any relay accepts (a publish
+  // failure on a single-relay setup rejects, surfacing in the create-agent flow).
+  const publish = useCallback(async (ev: NostrEvent) => {
+    const pool = poolRef.current;
+    if (!pool) throw new Error("relay not connected");
+    await Promise.any(pool.publish([relayRef.current], ev));
+  }, []);
+
+  return { state, now, relayStatus, relayUrl, setRelayUrl, injectForged, publish, reset };
 }

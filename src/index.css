@@ -1797,6 +1797,57 @@
   transform: translateY(1px);
 }
 
+/* the control-plane action bar (sits above the agents panel) */
+.section-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.create-agent-btn {
+  color: var(--ink-0);
+  background: rgba(255, 111, 165, 0.16);
+  border-color: var(--kirby);
+}
+.create-agent-btn:hover {
+  background: rgba(255, 111, 165, 0.28);
+  border-color: var(--kirby-hot);
+}
+
+/* the "waiting → alive" confirmation strip on the spawn-requested screen */
+.spawn-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--ink-1);
+  background: var(--surf-0);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.spawn-status-dot {
+  flex: none;
+  margin-top: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+  animation: spawn-pulse 1.4s ease-in-out infinite;
+}
+.spawn-status--live {
+  color: var(--ink-0);
+  border-color: var(--alive);
+}
+.spawn-status--live .spawn-status-dot {
+  background: var(--alive);
+  box-shadow: var(--glow-alive);
+  animation: none;
+}
+@keyframes spawn-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
 .auth-id {
   display: flex;
   align-items: center;

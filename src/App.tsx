@@ -10,6 +10,7 @@ import { Header } from "./components/Header";
 import { NodeGrid } from "./components/NodeGrid";
 import { AgentDashboard } from "./components/AgentDashboard";
 import { AgentDetail } from "./components/AgentDetail";
+import { CreateAgent } from "./components/CreateAgent";
 import { Feed } from "./components/Feed";
 import { DemoControls } from "./components/DemoControls";
 import { SoundToggle } from "./components/SoundToggle";
@@ -17,7 +18,7 @@ import { ConfirmSign } from "./components/ConfirmSign";
 import { useClusterSound } from "./audio/useClusterSound";
 
 export default function App() {
-  const { state, now, relayStatus, relayUrl, setRelayUrl, injectForged } = useCluster();
+  const { state, now, relayStatus, relayUrl, setRelayUrl, injectForged, publish } = useCluster();
 
   // The drill-down selection. Lives here (the composition root holds `state`), so
   // the detail modal can read timeline + meter without threading them through the
@@ -50,6 +51,10 @@ export default function App() {
         {/* nodes as a compact full-width strip on top, then the agents hero, then
             the signed feed — all full-width bands, no half-empty columns */}
         <NodeGrid nodes={state.nodes} now={now} />
+        {/* control plane: publish a signed 31003 spawn request to bring an agent to life */}
+        <div className="section-actions">
+          <CreateAgent publish={publish} isSpawned={(id) => !!state.agents[id]} />
+        </div>
         <AgentDashboard agents={state.agents} now={now} onSelect={setSelectedId} />
         <Feed feed={state.feed} now={now} />
       </main>
