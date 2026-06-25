@@ -15,6 +15,12 @@ import type { Event as NostrEvent } from "nostr-tools";
 
 /** The Kirby event kinds, by Nostr range semantics. */
 export const KIND = {
+  /** 1 regular text note: the agent's OWN public voice — a real kind:1 Nostr note
+   *  the agent chose to post (the POST actuator, e.g. Chatter's "Hello world!").
+   *  Content is PLAIN TEXT (not JSON); attributed to its agent via the ["a",agent_id]
+   *  tag the publisher attaches to agent-scoped events. The wider Nostr world sees
+   *  these as ordinary notes; we surface them in the feed as the agent's voice. */
+  NOTE: 1,
   /** 10100 replaceable: node liveness heartbeat (slice-1, real). Latest-wins per node. */
   PRESENCE: 10100,
   /** 31000 addressable (d=agent_id): per-agent current state. The main dashboard tile. */
@@ -34,8 +40,11 @@ export const KIND = {
 /** Every Kirby event kind, for the relay subscription filter. */
 export const ALL_KINDS: number[] = Object.values(KIND);
 
-/** The stored, append-only event-log kinds (the signed feed/timeline). */
+/** The stored, append-only event-log kinds (the signed feed/timeline). The agent's
+ *  own kind:1 notes (NOTE) ride this same timeline so its voice and its economic
+ *  lifecycle interleave in one feed. */
 export const FEED_KINDS: number[] = [
+  KIND.NOTE,
   KIND.LIFECYCLE,
   KIND.LEDGER,
   KIND.FAILOVER,
@@ -89,6 +98,15 @@ export interface MeterTickContent {
   fidelity: Fidelity;
 }
 
+/** kind:1 "content". A real Nostr text note's content is the PLAIN-TEXT body, not
+ *  JSON, so unlike the other kinds this is synthesized at decode time: `text` is the
+ *  note body verbatim and `agent_id` is read from the ["a",agent_id] tag (the
+ *  publisher's agent-scope tag), or null if the note carries no agent tag. */
+export interface NoteContent {
+  agent_id: string | null;
+  text: string;
+}
+
 /** 9100 content. born -> ... -> DIED-when-broke. */
 export interface LifecycleContent {
   agent_id: string;
@@ -139,6 +157,7 @@ export interface EventMeta {
 
 /** A decoded Kirby event: a discriminated union over `kind`. */
 export type KirbyEvent =
+  | (EventMeta & { kind: typeof KIND.NOTE; content: NoteContent })
   | (EventMeta & { kind: typeof KIND.PRESENCE; content: PresenceContent })
   | (EventMeta & { kind: typeof KIND.AGENT_STATE; content: AgentStateContent })
   | (EventMeta & { kind: typeof KIND.METER_TICK; content: MeterTickContent })
@@ -160,14 +179,6 @@ function tagValue(ev: NostrEvent, name: string): string | null {
  * that the event is authentic and only validates the payload shape.
  */
 export function decodeKirbyEvent(ev: NostrEvent): KirbyEvent | null {
-  let content: unknown;
-  try {
-    content = JSON.parse(ev.content);
-  } catch {
-    return null; // not JSON -> not a well-formed Kirby payload
-  }
-  if (typeof content !== "object" || content === null) return null;
-
   const meta: EventMeta = {
     id: ev.id,
     pubkey: ev.pubkey,
@@ -175,6 +186,25 @@ export function decodeKirbyEvent(ev: NostrEvent): KirbyEvent | null {
     created_at: ev.created_at,
     node_id: tagValue(ev, "node") ?? tagValue(ev, "node_id"),
   };
+
+  // kind:1 is a real Nostr text note: its content is the PLAIN-TEXT body, not JSON.
+  // Decode it before the JSON.parse below (which would otherwise discard it). The
+  // agent attribution rides the ["a",agent_id] tag the publisher already attaches
+  // to agent-scoped events; it stays null if the note isn't agent-tagged.
+  if (ev.kind === KIND.NOTE) {
+    const text = ev.content.trim();
+    if (text.length === 0) return null; // empty note -> nothing to surface
+    const agent_id = tagValue(ev, "a");
+    return { ...meta, kind: KIND.NOTE, content: { agent_id, text } };
+  }
+
+  let content: unknown;
+  try {
+    content = JSON.parse(ev.content);
+  } catch {
+    return null; // not JSON -> not a well-formed Kirby payload
+  }
+  if (typeof content !== "object" || content === null) return null;
 
   const c = content as Record<string, unknown>;
   switch (ev.kind) {
@@ -207,6 +237,7 @@ export function decodeKirbyEvent(ev: NostrEvent): KirbyEvent | null {
 /** Human label for a kind (for the feed). */
 export function kindLabel(kind: number): string {
   switch (kind) {
+    case KIND.NOTE: return "note";
     case KIND.PRESENCE: return "presence";
     case KIND.AGENT_STATE: return "agent-state";
     case KIND.METER_TICK: return "meter";

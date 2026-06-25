@@ -190,15 +190,21 @@ function foldEvent(state: ClusterState, ev: KirbyEvent): ClusterState {
       return { ...state, agents, meters: { ...state.meters, [id]: meter } };
     }
 
-    // The stored, append-only event-log kinds -> the signed feed.
+    // The stored, append-only event-log kinds -> the signed feed. kind:1 NOTE (the
+    // agent's own public voice) rides this same timeline so the feed shows the
+    // agent's actual words, not just its economic lifecycle.
+    case KIND.NOTE:
     case KIND.LIFECYCLE:
     case KIND.LEDGER:
     case KIND.FAILOVER:
     case KIND.CUSTODY: {
       // dedupe by event id (stored kinds are re-delivered on resubscribe).
       if (state.feed.some((e) => e.id === ev.id)) return state;
-      const agentId =
-        "agent_id" in ev.content ? (ev.content.agent_id as string) : undefined;
+      // agent_id is present on every agent-scoped kind; on a NOTE it may be null
+      // (a note with no ["a"] tag) -> leave the agent map untouched in that case.
+      const rawId =
+        "agent_id" in ev.content ? (ev.content.agent_id as string | null) : undefined;
+      const agentId = rawId ?? undefined;
       let agents = state.agents;
       if (agentId) {
         agents = touchAgent(agents, agentId, ev.created_at, ev.node_id);

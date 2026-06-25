@@ -21,7 +21,7 @@ export function Feed({ feed }: FeedProps) {
   return (
     <Panel
       title="signed event feed"
-      sub="lifecycle · ledger · failover · custody"
+      sub="note · lifecycle · ledger · failover · custody"
       meta={feed.length > 0 ? `${num(feed.length)} signed` : undefined}
       wide
     >
@@ -44,6 +44,8 @@ export function Feed({ feed }: FeedProps) {
 /** Classify a row for accent styling. custody+failover are the "proof" tones. */
 function rowTone(ev: KirbyEvent): string {
   switch (ev.kind) {
+    case KIND.NOTE:
+      return "note";
     case KIND.CUSTODY:
       return ev.content.event === "single_node_spend_refused" ? "refused" : "quorum";
     case KIND.FAILOVER:
@@ -59,6 +61,7 @@ function rowTone(ev: KirbyEvent): string {
 
 /** A tiny Kirby-mood glyph per row tone — decorative, derived from the event. */
 const TONE_GLYPH: Record<string, string> = {
+  note: "💬", // the agent speaks — its own public voice
   born: "✨", // a new puffball spawns
   died: "✕", // KO
   earn: "★", // fed
@@ -88,6 +91,18 @@ function FeedRow({ ev }: { ev: KirbyEvent }) {
 /** The human one-liner per kind. Amounts/ids in <b className="hl"> for emphasis. */
 function lineFor(ev: KirbyEvent): ReactNode {
   switch (ev.kind) {
+    case KIND.NOTE: {
+      // The agent's own words. Render the body verbatim as TEXT (React escapes it,
+      // so the note can't inject markup); attribute to its agent_id when tagged,
+      // else fall back to the signer npub shown in the row's signer column.
+      const { agent_id, text } = ev.content;
+      return (
+        <>
+          {agent_id ? <b className="hl">{agent_id}</b> : <b className="hl">agent</b>} posted{" "}
+          <span className="feed-note">“{text}”</span>
+        </>
+      );
+    }
     case KIND.LIFECYCLE: {
       const { agent_id, event, treasury_sats, reason } = ev.content;
       return event === "born" ? (
