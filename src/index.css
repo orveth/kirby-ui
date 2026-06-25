@@ -2152,3 +2152,93 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Feed filtering: a control strip of kind chips + an agent select. Filtering is
+   visual subtraction over verified rows — never a trust statement.
+   ───────────────────────────────────────────────────────────────────────── */
+.feed-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-bottom: 14px;
+}
+.feed-filter-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.feed-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+  background: var(--surf-0);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.15s, border-color 0.15s, color 0.15s;
+}
+.feed-chip:hover {
+  opacity: 0.85;
+}
+.feed-chip--active {
+  opacity: 1;
+  color: var(--ink-0);
+  border-color: var(--line-bright);
+}
+/* active chip wears its kind's accent — the filter legend IS the row legend */
+.feed-chip--active.feed-chip--born {
+  color: var(--alive);
+  border-color: var(--alive-dim);
+}
+.feed-chip--active.feed-chip--earn {
+  color: var(--earn);
+  border-color: var(--mint-dim);
+}
+.feed-chip--active.feed-chip--failover {
+  color: var(--sky-blue);
+  border-color: rgba(143, 214, 255, 0.45);
+}
+.feed-chip--active.feed-chip--refused {
+  color: var(--kirby-hot);
+  border-color: rgba(255, 111, 165, 0.5);
+}
+
+.feed-filter-agent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.feed-filter-agent select {
+  background: var(--surf-solid);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  color: var(--sky-blue);
+  padding: 5px 9px;
+  font-size: 12px;
+}
+.feed-filter-agent select:focus {
+  outline: none;
+  border-color: var(--kirby-hot);
+}
+.feed-filter-reset {
+  background: none;
+  border: none;
+  color: var(--ink-2);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0 2px;
+}
+.feed-filter-reset:hover {
+  color: var(--ink-0);
+}
