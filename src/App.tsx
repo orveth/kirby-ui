@@ -16,10 +16,17 @@ import { Feed } from "./components/Feed";
 import { DemoControls } from "./components/DemoControls";
 import { SoundToggle } from "./components/SoundToggle";
 import { ConfirmSign } from "./components/ConfirmSign";
+import { DmPanel } from "./components/DmPanel";
 import { useClusterSound } from "./audio/useClusterSound";
+
+type View = "dashboard" | "dm";
 
 export default function App() {
   const { state, now, relayStatus, relayUrl, setRelayUrl, injectForged, publish } = useCluster();
+
+  // Two top-level views: the read-only cluster dashboard and the DM panel (message
+  // an agent + watch it think). The header carries the toggle.
+  const [view, setView] = useState<View>("dashboard");
 
   // The drill-down selection. Lives here (the composition root holds `state`), so
   // the detail modal can read timeline + meter without threading them through the
@@ -46,30 +53,39 @@ export default function App() {
         relayUrl={relayUrl}
         setRelayUrl={setRelayUrl}
         rejected={state.rejected}
+        view={view}
+        setView={setView}
       />
 
-      <main className="grid">
-        {/* nodes as a compact full-width strip on top, then the agents hero, then
-            the signed feed — all full-width bands, no half-empty columns */}
-        <NodeGrid nodes={visibleNodes(state, now, NODE_GONE_SECS)} now={now} />
-        {/* control plane: publish a signed 31003 spawn request to bring an agent to life */}
-        <div className="section-actions">
-          <CreateAgent publish={publish} isSpawned={(id) => !!state.agents[id]} />
-        </div>
-        <AgentDashboard agents={state.agents} now={now} onSelect={setSelectedId} />
-        <Feed feed={state.feed} now={now} />
-      </main>
+      {view === "dm" ? (
+        <main className="grid">
+          <DmPanel relayUrl={relayUrl} />
+        </main>
+      ) : (
+        <main className="grid">
+          {/* nodes as a compact full-width strip on top, then the agents hero, then
+              the signed feed — all full-width bands, no half-empty columns */}
+          <NodeGrid nodes={visibleNodes(state, now, NODE_GONE_SECS)} now={now} />
+          {/* control plane: publish a signed 31003 spawn request to bring an agent to life */}
+          <div className="section-actions">
+            <CreateAgent publish={publish} isSpawned={(id) => !!state.agents[id]} />
+          </div>
+          <AgentDashboard agents={state.agents} now={now} onSelect={setSelectedId} />
+          <Feed feed={state.feed} now={now} />
+        </main>
+      )}
 
-      <DemoControls injectForged={injectForged} />
+      {view === "dashboard" && <DemoControls injectForged={injectForged} />}
 
-      {/* floating sound control (muted by default; opt-in unmute) */}
-      <SoundToggle />
+      {/* floating sound control (muted by default; opt-in unmute) — cluster view only,
+          so it can't sit over the DM composer */}
+      {view === "dashboard" && <SoundToggle />}
 
       {/* confirm-before-sign: renders only when a signature is pending approval */}
       <ConfirmSign />
 
-      {/* agent drill-down: opens when a card is selected */}
-      {selected && (
+      {/* agent drill-down: opens when a card is selected (dashboard view only) */}
+      {view === "dashboard" && selected && (
         <AgentDetail
           agent={selected}
           timeline={agentTimeline(state, selected.agent_id)}

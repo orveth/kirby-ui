@@ -2285,3 +2285,291 @@
 .feed-filter-reset:hover {
   color: var(--ink-0);
 }
+
+/* =============================================================================
+   DM panel — message an agent + watch it think (NIP-17 chat client).
+   ============================================================================= */
+
+/* the header view toggle: Cluster | Messages */
+.view-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--surf-0);
+  border: 1px solid var(--line);
+}
+.view-tab {
+  font: 600 12px/1 var(--font-sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: none;
+  border: none;
+  padding: 7px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.view-tab:hover {
+  color: var(--ink-0);
+}
+.view-tab--active {
+  color: var(--sky-0);
+  background: var(--kirby-hot);
+  box-shadow: var(--glow-pink);
+}
+
+/* the panel: a conversation rail + a transcript, bounded so the transcript scrolls */
+.dm {
+  display: grid;
+  grid-template-columns: minmax(220px, 290px) 1fr;
+  gap: 16px;
+  height: min(74vh, 780px);
+}
+
+.dm-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.dm-new {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.dm-new-label,
+.dm-list-head {
+  font: 700 11px/1 var(--font-sans);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.dm-new-row {
+  display: flex;
+  gap: 6px;
+}
+.dm-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surf-solid);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  color: var(--ink-0);
+  font-size: 12px;
+  padding: 9px 10px;
+}
+.dm-input:focus {
+  outline: none;
+  border-color: var(--line-bright);
+}
+.dm-btn,
+.dm-send {
+  font: 700 12px/1 var(--font-sans);
+  letter-spacing: 0.04em;
+  color: var(--sky-0);
+  background: var(--kirby-hot);
+  border: none;
+  border-radius: var(--radius-xs);
+  padding: 9px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dm-btn:disabled,
+.dm-send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.dm-btn:not(:disabled):hover,
+.dm-send:not(:disabled):hover {
+  background: var(--kirby-deep);
+}
+
+.dm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.dm-thread-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+  text-align: left;
+  background: var(--surf-0);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.dm-thread-item:hover {
+  border-color: var(--line-bright);
+}
+.dm-thread-item--active {
+  border-color: var(--kirby-hot);
+  background: var(--surf-1);
+}
+.dm-thread-npub {
+  font-size: 12px;
+  color: var(--ink-0);
+}
+.dm-thread-preview {
+  font-size: 12px;
+  color: var(--ink-2);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dm-hint {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+/* transcript pane */
+.dm-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surf-0);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.dm-thread-head {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surf-1);
+}
+.dm-peer {
+  font-size: 13px;
+  color: var(--ink-0);
+}
+.dm-transcript {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+}
+.dm-empty,
+.dm-empty-thread {
+  margin: auto;
+  max-width: 42ch;
+  text-align: center;
+  color: var(--ink-2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.dm-bubble {
+  max-width: 76%;
+  padding: 9px 13px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dm-bubble--me {
+  align-self: flex-end;
+  background: var(--kirby-hot);
+  color: var(--sky-0);
+  border-bottom-right-radius: 5px;
+}
+.dm-bubble--them {
+  align-self: flex-start;
+  background: var(--surf-2);
+  color: var(--ink-0);
+  border: 1px solid var(--line);
+  border-bottom-left-radius: 5px;
+}
+.dm-bubble-text {
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.dm-bubble-time {
+  font-size: 10px;
+  opacity: 0.7;
+  align-self: flex-end;
+}
+
+/* composer */
+.dm-composer {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--surf-1);
+}
+.dm-composer-input {
+  flex: 1;
+  resize: none;
+  background: var(--surf-solid);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-0);
+  font: 400 14px/1.45 var(--font-sans);
+  padding: 10px 12px;
+}
+.dm-composer-input:focus {
+  outline: none;
+  border-color: var(--line-bright);
+}
+.dm-send {
+  padding: 11px 20px;
+}
+.dm-error {
+  padding: 9px 16px;
+  color: var(--dead);
+  font-size: 12.5px;
+  border-top: 1px solid var(--line);
+}
+
+/* gate states (not signed in / can't DM) */
+.dm-gate {
+  display: flex;
+  justify-content: center;
+  padding: clamp(30px, 8vh, 90px) 16px;
+}
+.dm-gate-card {
+  max-width: 46ch;
+  text-align: center;
+  background: var(--surf-0);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 28px 30px;
+}
+.dm-gate-card h2 {
+  font: 700 20px/1.2 var(--font-display);
+  color: var(--ink-0);
+  margin: 0 0 10px;
+}
+.dm-gate-card p {
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .dm {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .dm-sidebar {
+    overflow: visible;
+  }
+  .dm-main {
+    height: 60vh;
+  }
+}

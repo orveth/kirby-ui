@@ -14,6 +14,8 @@ interface HeaderProps {
   relayUrl: string;
   setRelayUrl: (url: string) => void;
   rejected: ClusterState["rejected"];
+  view: "dashboard" | "dm";
+  setView: (v: "dashboard" | "dm") => void;
 }
 
 const STATUS_LABEL: Record<RelayStatus, string> = {
@@ -49,7 +51,7 @@ function RelayField({ relayUrl, setRelayUrl }: Pick<HeaderProps, "relayUrl" | "s
   );
 }
 
-export function Header({ relayStatus, relayUrl, setRelayUrl, rejected }: HeaderProps) {
+export function Header({ relayStatus, relayUrl, setRelayUrl, rejected, view, setView }: HeaderProps) {
   const hasRejects = rejected > 0;
   // Honest data-source badge: the UI only knows which relay it reads. The mock
   // demo relay is :7778; anything else is treated as a live relay. Derived purely
@@ -73,6 +75,25 @@ export function Header({ relayStatus, relayUrl, setRelayUrl, rejected }: HeaderP
       </div>
 
       <div className="header-right">
+        <div className="view-tabs" role="tablist" aria-label="view">
+          <button
+            className={`view-tab${view === "dashboard" ? " view-tab--active" : ""}`}
+            role="tab"
+            aria-selected={view === "dashboard"}
+            onClick={() => setView("dashboard")}
+          >
+            Cluster
+          </button>
+          <button
+            className={`view-tab${view === "dm" ? " view-tab--active" : ""}`}
+            role="tab"
+            aria-selected={view === "dm"}
+            onClick={() => setView("dm")}
+          >
+            Messages
+          </button>
+        </div>
+
         <div className="relay" data-status={relayStatus}>
           <span
             className="data-source mono"
