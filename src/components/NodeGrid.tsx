@@ -12,13 +12,15 @@ import { Panel } from "./Panel";
 import { Star } from "./Kirby";
 
 interface NodeGridProps {
-  nodes: Record<string, NodeView>;
+  /** The persistent fleet nodes to render, already filtered by `visibleNodes`
+   *  (agent beacons + GONE nodes removed). NodeGrid only orders + renders. */
+  nodes: NodeView[];
   now: number;
 }
 
 export function NodeGrid({ nodes, now }: NodeGridProps) {
   // Stable order: by node_id then pubkey, so cells don't jump around on re-render.
-  const list = Object.values(nodes).sort((a, b) =>
+  const list = [...nodes].sort((a, b) =>
     (a.node_id ?? a.pubkey).localeCompare(b.node_id ?? b.pubkey),
   );
   const alive = list.filter((n) => nodeLiveness(n, now, STALE_WINDOW_SECS) === "alive").length;

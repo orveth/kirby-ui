@@ -5,7 +5,8 @@
 
 import { useEffect, useState } from "react";
 import { useCluster } from "./nostr/useCluster";
-import { agentTimeline } from "./nostr/clusterState";
+import { agentTimeline, visibleNodes } from "./nostr/clusterState";
+import { NODE_GONE_SECS } from "./config";
 import { Header } from "./components/Header";
 import { NodeGrid } from "./components/NodeGrid";
 import { AgentDashboard } from "./components/AgentDashboard";
@@ -50,7 +51,7 @@ export default function App() {
       <main className="grid">
         {/* nodes as a compact full-width strip on top, then the agents hero, then
             the signed feed — all full-width bands, no half-empty columns */}
-        <NodeGrid nodes={state.nodes} now={now} />
+        <NodeGrid nodes={visibleNodes(state, now, NODE_GONE_SECS)} now={now} />
         {/* control plane: publish a signed 31003 spawn request to bring an agent to life */}
         <div className="section-actions">
           <CreateAgent publish={publish} isSpawned={(id) => !!state.agents[id]} />

@@ -288,6 +288,28 @@ export function nodeLiveness(node: NodeView, now: number, staleWindowSecs: numbe
   return now - node.lastSeen <= staleWindowSecs ? "alive" : "stale";
 }
 
+/** The nodes to RENDER in the node grid: the persistent fleet nodes only. The `nodes`
+ *  map is fed by every 10100 presence beacon, but two kinds of entry must NOT show as a
+ *  node:
+ *   (U1) AGENT beacons. Agents no longer beacon node presence — the persistent node daemon
+ *        does — but a pre-split agent's retained 10100 can still linger at the relay
+ *        (replaceable events are kept forever). A real node key signs ONLY presence, never
+ *        an agent-scoped event (31000/9100/…), so a presence pubkey that DID sign one is an
+ *        agent, not a node; `pubkeyAgents` is exactly that learned set, so we exclude it.
+ *   (U3) GONE nodes. A node silent beyond `goneCutoffSecs` is decommissioned and dropped
+ *        entirely. The cutoff is kept well above the DEAD/STALE window (config), so a brief
+ *        restart never drops a node, but a node taken down for good clears itself.
+ *  Pure + render-time (no state mutation, order-independent), mirroring `nodeLiveness`. */
+export function visibleNodes(
+  state: ClusterState,
+  now: number,
+  goneCutoffSecs: number,
+): NodeView[] {
+  return Object.values(state.nodes).filter(
+    (node) => !(node.pubkey in state.pubkeyAgents) && now - node.lastSeen <= goneCutoffSecs,
+  );
+}
+
 /** A meter is "live" if a tick arrived within the idle window, else no-signal. */
 export function meterIsLive(meter: MeterView, now: number, idleWindowSecs: number): boolean {
   return now - meter.at <= idleWindowSecs;
