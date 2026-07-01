@@ -84,6 +84,14 @@ export interface AgentStateContent {
   lease_holder_node: string | null; // null on the sovereign path (no Raft lease)
   lease_term: number | null; // null on the sovereign path
   backend: Backend;
+  /** Hex pubkey of the agent's canonical social/DM key, synthesized at decode time
+   *  from the ["social", <hex>] tag (like NoteContent.agent_id is synthesized from
+   *  the ["a"] tag; the tag carries it, not the content JSON). This key signs the
+   *  agent's kind:10050 inbox + kind:0 profile AND receives NIP-17 DMs — i.e. it IS
+   *  the DM target. The 31000 is signed by the agent's Q (control) key, which is a
+   *  DIFFERENT key by design, so we READ the tag value rather than trust the signer.
+   *  Absent tag -> null (the agent hasn't published a social binding yet). */
+  social: string | null;
 }
 
 export type Fidelity = "cgroup_exact" | "host_coarse";
@@ -214,9 +222,17 @@ export function decodeKirbyEvent(ev: NostrEvent): KirbyEvent | null {
     case KIND.PRESENCE:
       if (typeof c.node_id !== "string") return null;
       return { ...meta, kind: KIND.PRESENCE, content: c as unknown as PresenceContent };
-    case KIND.AGENT_STATE:
+    case KIND.AGENT_STATE: {
       if (typeof c.agent_id !== "string") return null;
-      return { ...meta, kind: KIND.AGENT_STATE, content: c as unknown as AgentStateContent };
+      // `social` (the canonical DM-key hex) rides the ["social", <hex>] tag, NOT the
+      // content JSON — synthesize it here like the NOTE agent_id, absent tag -> null.
+      const social = tagValue(ev, "social");
+      return {
+        ...meta,
+        kind: KIND.AGENT_STATE,
+        content: { ...(c as unknown as AgentStateContent), social },
+      };
+    }
     case KIND.METER_TICK:
       if (typeof c.agent_id !== "string") return null;
       return { ...meta, kind: KIND.METER_TICK, content: c as unknown as MeterTickContent };

@@ -1,16 +1,24 @@
 // The DM panel: message an agent and watch the multi-turn conversation unfold.
 //
 // A NIP-17 chat client on the operator identity. The operator picks an agent's DM
-// npub (typed in, or from the discovered kind:10050 inboxes on the relay), sends a
-// gift-wrapped message, and reads the agent's gift-wrapped replies threaded by the
-// SEAL-verified sender. A DM is quarantined on the agent side — it can only make the
-// agent think and reply, never spend or post — so the operator can chat freely.
+// npub (typed in, or from the LIVE-agent list on the relay), sends a gift-wrapped
+// message, and reads the agent's gift-wrapped replies threaded by the SEAL-verified
+// sender. A DM is quarantined on the agent side — it can only make the agent think
+// and reply, never spend or post — so the operator can chat freely.
+//
+// The discovery list ("Agents with an inbox") is the `liveTargets` prop, NOT the raw
+// kind:10050 inboxes: a dead run's inbox lingers on the relay forever and looks
+// identical to a live one, so DMing it silently goes nowhere. `liveTargets` is
+// resolved upstream from each LIVE agent's kind:31000 ["social"] binding (see
+// clusterState.liveDmTargets), so every offered target is a running agent, labelled
+// by agent_id. We still run useDms for the actual conversation (kind:1059) + send.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { decode } from "nostr-tools/nip19";
 
 import { useNostrAuth } from "../nostr/useNostrAuth";
 import { useDms, type DmThread } from "../nostr/useDms";
+import type { DmTarget } from "../nostr/clusterState";
 import { shortNpub, toNpub } from "../nostr/verify";
 import { clock } from "./format";
 
@@ -27,9 +35,9 @@ function toHexPubkey(input: string): string | null {
   return null;
 }
 
-export function DmPanel({ relayUrl }: { relayUrl: string }) {
+export function DmPanel({ relayUrl, liveTargets }: { relayUrl: string; liveTargets: DmTarget[] }) {
   const { status, canDm, pubkey } = useNostrAuth();
-  const { threads, inboxes, send } = useDms(relayUrl);
+  const { threads, send } = useDms(relayUrl);
 
   const [selectedPeer, setSelectedPeer] = useState<string | null>(null);
   const [newNpub, setNewNpub] = useState("");
@@ -47,11 +55,12 @@ export function DmPanel({ relayUrl }: { relayUrl: string }) {
     [threads, selectedPeer],
   );
 
-  // Discovered inboxes we don't already have a thread with (and not ourselves).
+  // Live agents we don't already have a thread with (and not ourselves). The join key
+  // is `social` (the 31000's canonical DM hex) === the thread `peer` === the DM target.
   const suggestions = useMemo(() => {
     const known = new Set(threads.map((t) => t.peer));
-    return inboxes.filter((i) => !known.has(i.pubkey) && i.pubkey !== pubkey);
-  }, [inboxes, threads, pubkey]);
+    return liveTargets.filter((t) => !known.has(t.social) && t.social !== pubkey);
+  }, [liveTargets, threads, pubkey]);
 
   // Keep the transcript pinned to the newest message.
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -153,17 +162,17 @@ export function DmPanel({ relayUrl }: { relayUrl: string }) {
         {suggestions.length > 0 && (
           <div className="dm-list">
             <div className="dm-list-head">Agents with an inbox</div>
-            {suggestions.map((i) => (
-              <button key={i.pubkey} className="dm-thread-item" onClick={() => setSelectedPeer(i.pubkey)}>
-                <span className="dm-thread-npub mono">{shortNpub(i.npub)}</span>
-                <span className="dm-thread-preview">accepts DMs</span>
+            {suggestions.map((t) => (
+              <button key={t.social} className="dm-thread-item" onClick={() => setSelectedPeer(t.social)}>
+                <span className="dm-thread-agent">{t.agent_id}</span>
+                <span className="dm-thread-npub mono">{shortNpub(t.npub)}</span>
               </button>
             ))}
           </div>
         )}
 
         {threads.length === 0 && suggestions.length === 0 && (
-          <p className="dm-hint">No conversations yet. Paste an agent&apos;s DM npub above to start one. Agents that publish a NIP-17 inbox on this relay show up here automatically.</p>
+          <p className="dm-hint">No conversations yet. Paste an agent&apos;s DM npub above to start one. Live agents appear here as they publish state — DM one to watch it think.</p>
         )}
       </aside>
 

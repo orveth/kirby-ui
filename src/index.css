@@ -2418,6 +2418,14 @@
   font-size: 12px;
   color: var(--ink-0);
 }
+.dm-thread-agent {
+  font-size: 12.5px;
+  color: var(--ink-0);
+  font-weight: 500;
+}
+.dm-thread-item .dm-thread-agent + .dm-thread-npub {
+  color: var(--ink-2);
+}
 .dm-thread-preview {
   font-size: 12px;
   color: var(--ink-2);

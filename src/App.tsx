@@ -5,8 +5,8 @@
 
 import { useEffect, useState } from "react";
 import { useCluster } from "./nostr/useCluster";
-import { agentTimeline, visibleNodes } from "./nostr/clusterState";
-import { NODE_GONE_SECS } from "./config";
+import { agentTimeline, liveDmTargets, visibleNodes } from "./nostr/clusterState";
+import { AGENT_GONE_SECS, NODE_GONE_SECS } from "./config";
 import { Header } from "./components/Header";
 import { NodeGrid } from "./components/NodeGrid";
 import { AgentDashboard } from "./components/AgentDashboard";
@@ -59,7 +59,7 @@ export default function App() {
 
       {view === "dm" ? (
         <main className="grid">
-          <DmPanel relayUrl={relayUrl} />
+          <DmPanel relayUrl={relayUrl} liveTargets={liveDmTargets(state, now, AGENT_GONE_SECS)} />
         </main>
       ) : (
         <main className="grid">

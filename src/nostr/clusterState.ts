@@ -14,6 +14,7 @@ import {
   type KirbyEvent,
   type Lifecycle,
 } from "./kinds";
+import { toNpub } from "./verify";
 
 /** A node as seen via its 10100 presence beacon (latest-wins per pubkey). */
 export interface NodeView {
@@ -341,4 +342,44 @@ export function agentTimeline(state: ClusterState, agentId: string): KirbyEvent[
   return state.feed.filter(
     (e) => "agent_id" in e.content && e.content.agent_id === agentId,
   );
+}
+
+/** A live agent's DM target: the canonical social/DM key it published in its 31000. */
+export interface DmTarget {
+  agent_id: string;
+  /** The canonical DM-key HEX (the 31000's ["social"] value = the kind:10050 signer
+   *  = the NIP-17 recipient). */
+  social: string;
+  /** Bech32 of `social`, for the DM UI's short-npub display. */
+  npub: string;
+}
+
+/** The DM targets to OFFER in the DM panel: agents that are demonstrably LIVE and
+ *  carry a canonical social binding, so a DM lands on a running agent — never on a
+ *  dead run's stale, look-alike kind:10050 inbox. An agent qualifies iff its latest
+ *  31000 is fresh (`now - stateAt < goneSecs`; stateAt is the 31000's created_at,
+ *  distinct from lastUpdate which meter ticks also bump), its lifecycle is not
+ *  dead/dying, AND it published a ["social"] hex (the DM target). We resolve each
+ *  such agent's canonical hex from its 31000 and label it by agent_id; an inbox with
+ *  no live 31000 pointing at it is simply never surfaced (it can't produce a target).
+ *  Pure + render-time (no state mutation, order-independent), mirroring `visibleNodes`.
+ *  Sorted by recency (freshest 31000 first). */
+export function liveDmTargets(
+  state: ClusterState,
+  now: number,
+  goneSecs: number,
+): DmTarget[] {
+  return Object.values(state.agents)
+    .filter((agent): agent is AgentView & { state: AgentStateContent & { social: string } } => {
+      const s = agent.state;
+      if (!s || s.social === null) return false;
+      if (s.lifecycle === "dead" || s.lifecycle === "dying") return false;
+      return now - agent.stateAt < goneSecs;
+    })
+    .map((agent) => ({
+      agent_id: agent.agent_id,
+      social: agent.state.social,
+      npub: toNpub(agent.state.social),
+    }))
+    .sort((a, b) => state.agents[b.agent_id].stateAt - state.agents[a.agent_id].stateAt);
 }
