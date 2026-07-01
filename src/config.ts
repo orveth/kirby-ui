@@ -13,6 +13,14 @@ export const STALE_WINDOW_SECS = 20;
  *  10100 beacon indefinitely). FLAG for gudnuf: 600s (10 min) proposed — tune to taste. */
 export const NODE_GONE_SECS = 600;
 
+/** An agent whose latest kind:31000 state is older than this reads as GONE for DM
+ *  purposes and is dropped from the DM panel's live-inbox list — so a dead run's
+ *  stale, look-alike kind:10050 inbox is never offered as a DM target. Mirrors
+ *  NODE_GONE_SECS (it's the same "silent beyond the window = gone" call, keyed on the
+ *  agent's 31000 created_at instead of a node's 10100), kept its own constant because
+ *  agents and nodes beacon on different cadences and may want different windows. */
+export const AGENT_GONE_SECS = 600;
+
 /** A meter with no tick for this many seconds reads as "no signal" (idle). */
 export const METER_IDLE_SECS = 6;
 

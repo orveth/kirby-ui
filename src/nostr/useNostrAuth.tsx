@@ -18,6 +18,7 @@ import { npubEncode } from "nostr-tools/nip19";
 import { generateAccount, importKey, encryptSecret, decryptSecret } from "./auth";
 import { localSigner, nip07Signer, detectNip07, type EventTemplate, type Signer } from "./signer";
 import { saveSession, loadSession, clearSession, type StoredSession } from "./session";
+import type { BuiltDm, DmRumor } from "./dm";
 
 type AuthStatus = "anon" | "locked" | "authed";
 
@@ -33,8 +34,12 @@ export interface PendingSign {
 export interface NostrAuth {
   status: AuthStatus;
   npub: string | null;
+  /** The operator's hex pubkey while authed (for the DM subscription filter), else null. */
+  pubkey: string | null;
   method: StoredSession["method"] | null;
   nip07Available: boolean;
+  /** Whether the current session can send/read NIP-17 DMs (see Signer.canDm). */
+  canDm: boolean;
 
   /** Sign in with the NIP-07 browser extension. */
   loginNip07: () => Promise<void>;
@@ -51,6 +56,12 @@ export interface NostrAuth {
   signEvent: (template: EventTemplate, summary: string) => Promise<NostrEvent>;
   /** The signature awaiting confirmation, if any (drives <ConfirmSign>). */
   pendingSign: PendingSign | null;
+
+  /** Build a NIP-17 DM to `agentPubkey` (+ self-copy). Frictionless (no ConfirmSign):
+   *  a gift wrap can only ever produce a DM, never a spawn/fund command. */
+  buildDm: (agentPubkey: string, message: string) => Promise<BuiltDm>;
+  /** Open a gift wrap addressed to us into its seal-verified inner message. */
+  openDm: (giftWrap: NostrEvent) => Promise<DmRumor>;
 }
 
 const AuthContext = createContext<NostrAuth | null>(null);
@@ -187,12 +198,34 @@ function useProvideAuth(): NostrAuth {
     [],
   );
 
+  // DMs go straight to the signer (no ConfirmSign): the gift-wrap structure is fixed,
+  // so the operator key can only ever produce a DM here, never a command.
+  const buildDm = useCallback((agentPubkey: string, message: string) => {
+    const signer = signerRef.current;
+    if (!signer) return Promise.reject(new Error("not signed in"));
+    if (!signer.canDm) return Promise.reject(new Error("this session cannot send DMs"));
+    return signer.buildDm(agentPubkey, message);
+  }, []);
+
+  const openDm = useCallback((giftWrap: NostrEvent) => {
+    const signer = signerRef.current;
+    if (!signer) return Promise.reject(new Error("not signed in"));
+    return signer.openDm(giftWrap);
+  }, []);
+
+  // Read off the live signer; both flip when `status` does, so they re-render correctly.
+  const signer = signerRef.current;
+  const pubkey = status === "authed" && signer ? signer.pubkey : null;
+  const canDm = status === "authed" && signer ? signer.canDm : false;
+
   return useMemo(
     () => ({
       status,
       npub,
+      pubkey,
       method,
       nip07Available,
+      canDm,
       loginNip07,
       createAccount,
       importAccount,
@@ -200,7 +233,9 @@ function useProvideAuth(): NostrAuth {
       logout,
       signEvent,
       pendingSign,
+      buildDm,
+      openDm,
     }),
-    [status, npub, method, nip07Available, loginNip07, createAccount, importAccount, unlock, logout, signEvent, pendingSign],
+    [status, npub, pubkey, method, nip07Available, canDm, loginNip07, createAccount, importAccount, unlock, logout, signEvent, pendingSign, buildDm, openDm],
   );
 }
